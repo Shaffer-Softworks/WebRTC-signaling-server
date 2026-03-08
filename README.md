@@ -4,7 +4,7 @@ Home Assistant add-on repository.
 
 ## Add-ons
 
-- **[WebRTC Signaling Server](webrtc-signaling/)** – WebRTC signaling server for LAN intercom with dashboard.
+- **[WebRTC Signaling Server](webrtc_signaling/)** – WebRTC signaling server for LAN intercom with dashboard.
 
 ## Adding this repository
 
