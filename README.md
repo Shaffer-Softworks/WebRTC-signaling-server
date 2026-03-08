@@ -1,29 +1,13 @@
-# WebRTC Signaling Server (Home Assistant Addon)
+# Shaffer Softworks Add-ons
 
-Standalone WebRTC signaling server for LAN intercom, with a dashboard.
+Home Assistant add-on repository.
 
-**Repository:** https://github.com/Shaffer-Softworks/WebRTC-signaling-server.git Compatible with the Node-RED "Signaling Router" protocol.
+## Add-ons
 
-## Local run
+- **[WebRTC Signaling Server](webrtc-signaling/)** – WebRTC signaling server for LAN intercom with dashboard.
 
-```bash
-npm install
-node server.js
-```
+## Adding this repository
 
-- Dashboard: http://localhost:8765/
-- WebSocket: ws://localhost:8765/webrtc
-- API: http://localhost:8765/api/clients
-
-Options: set `PORT` and optionally `OPENOBSERVE_URL`, or create `/data/options.json` with `{ "port": 8765, "openobserve_url": "" }`.
-
-## Docker
-
-```bash
-docker build -t webrtc-signaling .
-docker run -p 8765:8765 webrtc-signaling
-```
-
-## Home Assistant addon
-
-Copy this folder into your HA addons directory (e.g. `addons/webrtc_signaling/`). The addon reads `/data/options.json` for `port` and `openobserve_url`. Configure the addon in the UI and start it; then use the dashboard and WebSocket URL (e.g. `ws://homeassistant.local:8765/webrtc`) from your intercom clients.
+1. In Home Assistant: **Settings** → **Add-ons** → **Add-on store** → **⋮** → **Repositories**
+2. Add: `https://github.com/Shaffer-Softworks/WebRTC-signaling-server`
+3. Install the add-on from the store.
