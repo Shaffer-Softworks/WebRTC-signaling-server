@@ -46,26 +46,37 @@ function sendToSession(sessionId, obj) {
   }
 }
 
+/** Log to addon log (stdout/stderr) so it appears in Home Assistant addon log. */
+function logToAddon(payload, level = "info") {
+  const msg = typeof payload === "string" ? payload : JSON.stringify(payload);
+  const line = `[webrtc] ${level.toUpperCase()}: ${msg}`;
+  if (level === "warn") {
+    console.warn(line);
+  } else if (level === "debug") {
+    console.debug(line);
+  } else {
+    console.log(line);
+  }
+}
+
 function makeOnLog(openobserveUrl, username, password) {
-  if (!openobserveUrl) return () => {};
   const headers = { "Content-Type": "application/json" };
   if (username && password) {
     headers.Authorization = "Basic " + Buffer.from(username + ":" + password, "utf8").toString("base64");
   }
   return (payload, level = "info") => {
-    const body = JSON.stringify({
-      "@timestamp": new Date().toISOString(),
-      service: "webrtc-signaling",
-      app: "webrtc-signaling",
-      level,
-      tag: "webrtc",
-      message: typeof payload === "string" ? payload : JSON.stringify(payload),
-    });
-    fetch(openobserveUrl, {
-      method: "POST",
-      headers,
-      body,
-    }).catch(() => {});
+    logToAddon(payload, level);
+    if (openobserveUrl) {
+      const body = JSON.stringify({
+        "@timestamp": new Date().toISOString(),
+        service: "webrtc-signaling",
+        app: "webrtc-signaling",
+        level,
+        tag: "webrtc",
+        message: typeof payload === "string" ? payload : JSON.stringify(payload),
+      });
+      fetch(openobserveUrl, { method: "POST", headers, body }).catch(() => {});
+    }
   };
 }
 
@@ -122,13 +133,21 @@ const server = http.createServer((req, res) => {
   res.end("Not found");
 });
 
+const HEARTBEAT_INTERVAL_MS = 30000;
+
 const wss = new WebSocketServer({ server, path: "/webrtc" });
 
 wss.on("connection", (ws, req) => {
   const sessionId = require("crypto").randomUUID();
   sessions.set(sessionId, ws);
+  ws.isAlive = true;
+
+  ws.on("pong", () => {
+    ws.isAlive = true;
+  });
 
   ws.on("message", (raw) => {
+    ws.isAlive = true;
     let data;
     try {
       data = typeof raw === "string" ? JSON.parse(raw) : JSON.parse(raw.toString());
@@ -145,18 +164,29 @@ wss.on("connection", (ws, req) => {
     applyResult(result);
   });
 
-  ws.on("close", () => {
+  function cleanup() {
+    if (!sessions.has(sessionId)) return;
+    sessions.delete(sessionId);
     const result = signaling.handleDisconnect(sessionId, sendToSession, onLog);
     applyResult(result);
-    sessions.delete(sessionId);
-  });
+  }
 
-  ws.on("error", () => {
-    const result = signaling.handleDisconnect(sessionId, sendToSession, onLog);
-    applyResult(result);
-    sessions.delete(sessionId);
-  });
+  ws.on("close", cleanup);
+  ws.on("error", cleanup);
 });
+
+const heartbeatInterval = setInterval(() => {
+  wss.clients.forEach((ws) => {
+    if (ws.isAlive === false) {
+      ws.terminate();
+      return;
+    }
+    ws.isAlive = false;
+    ws.ping();
+  });
+}, HEARTBEAT_INTERVAL_MS);
+
+wss.on("close", () => clearInterval(heartbeatInterval));
 
 const port = options.port;
 server.listen(port, "0.0.0.0", () => {

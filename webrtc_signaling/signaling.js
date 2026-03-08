@@ -1,11 +1,27 @@
 /**
- * WebRTC Signaling Router (standalone)
- * Compatible with Node-RED "Signaling Router" protocol.
+ * Direct-Calling Signaling Router (standalone)
+ * Matches the Node-RED WebSocket function node protocol.
  *
- * State: clients { clientId -> sessionId }, sessInfo { sessionId -> { clientId, displayName, lastActivity, inCallWith } }
- * Stale pruning: 90s before each clientsList broadcast.
+ * Data structures:
+ * - clients: { clientId: sessionId } - Maps device ID to WebSocket session
+ * - sessInfo: { sessionId: { clientId, displayName, lastActivity, inCallWith } }
+ *
+ * Protocol messages:
+ * - register: Client registers with server
+ * - registered: Server confirms registration
+ * - offer/answer/candidate: WebRTC signaling (routed by 'to' field)
+ * - hangup: End call
+ * - unavailable: Target device not online
+ * - getClients: Request client list
+ * - clientsList: List of online clients (registered and recently active)
+ * - heartbeat: Keep-alive (avoids being pruned as stale)
+ *
+ * Stale cleanup: Clients with no activity for STALE_CLIENT_MS are pruned before
+ * each clientsList broadcast, so devices that disconnect without a proper close
+ * do not stay in the list.
  */
 
+/** Max idle time (ms) before a client is considered offline and pruned from the list. */
 const STALE_CLIENT_MS = 90000;
 
 function createSignaling() {
@@ -180,6 +196,7 @@ function createSignaling() {
       return {};
     }
 
+    onLog({ type: "unknown_message", messageType: data.type }, "debug");
     return {};
   }
 
