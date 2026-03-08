@@ -164,15 +164,21 @@ wss.on("connection", (ws, req) => {
     applyResult(result);
   });
 
-  function cleanup() {
+  function cleanup(code, reason) {
     if (!sessions.has(sessionId)) return;
     sessions.delete(sessionId);
+    if (code !== undefined) {
+      logToAddon(
+        { type: "websocket_close", sessionId, code, reason: reason ? String(reason) : "" },
+        "info"
+      );
+    }
     const result = signaling.handleDisconnect(sessionId, sendToSession, onLog);
     applyResult(result);
   }
 
-  ws.on("close", cleanup);
-  ws.on("error", cleanup);
+  ws.on("close", (code, reason) => cleanup(code, reason));
+  ws.on("error", () => cleanup());
 });
 
 const heartbeatInterval = setInterval(() => {
@@ -189,6 +195,10 @@ const heartbeatInterval = setInterval(() => {
 wss.on("close", () => clearInterval(heartbeatInterval));
 
 const port = options.port;
+let listenLogged = false;
 server.listen(port, "0.0.0.0", () => {
-  console.log(`WebRTC signaling server listening on port ${port} (WS /webrtc, dashboard /)`);
+  if (!listenLogged) {
+    listenLogged = true;
+    console.log(`WebRTC signaling server listening on port ${port} (WS /webrtc, dashboard /)`);
+  }
 });

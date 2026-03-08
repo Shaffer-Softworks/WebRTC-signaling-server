@@ -34,7 +34,7 @@ Copy this folder into your HA addons directory (e.g. `addons/webrtc_signaling/`)
 
 When the server stops or the connection drops, the WebSocket will close. **Clients must treat `close` and `error` as disconnected** so the device UI does not show "connected" when the server is down.
 
-- **WebSocket `open`** → set connection state to **connected** (then send `register`).
+- **WebSocket `open`** → set connection state to **connected**, then send **`register`** as the first message. Do not send `getClients` or `heartbeat` until after you have received `registered` (otherwise the server responds with `not_registered` and the device can appear to drop).
 - **WebSocket `close`** or **`error`** → set connection state to **disconnected** (and optionally try to reconnect after a delay).
 
 Example (browser or Node client):

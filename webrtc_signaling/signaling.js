@@ -224,7 +224,10 @@ function createSignaling() {
       }
     }
 
-    delete clients[clientId];
+    // Only remove from clients if this session is still the one registered (same device may have reconnected with a new session).
+    if (clients[clientId] === sessionId) {
+      delete clients[clientId];
+    }
     delete sessInfo[sessionId];
     onLog({ type: "disconnect", clientId }, "info");
 
