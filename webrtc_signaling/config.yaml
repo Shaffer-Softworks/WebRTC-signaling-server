@@ -19,6 +19,10 @@ map: []
 options:
   port: 8765
   openobserve_url: ""
+  openobserve_username: ""
+  openobserve_password: ""
 schema:
   port: "int(1,65535)?"
   openobserve_url: "str?"
+  openobserve_username: "str?"
+  openobserve_password: "password?"

@@ -7,7 +7,12 @@ const { createSignaling } = require("./signaling.js");
 const DEFAULT_PORT = 8765;
 
 function loadOptions() {
-  let options = { port: DEFAULT_PORT, openobserve_url: "" };
+  let options = {
+    port: DEFAULT_PORT,
+    openobserve_url: "",
+    openobserve_username: "",
+    openobserve_password: "",
+  };
   try {
     const p = path.join("/data", "options.json");
     if (fs.existsSync(p)) {
@@ -15,10 +20,14 @@ function loadOptions() {
       const parsed = JSON.parse(raw);
       if (typeof parsed.port === "number") options.port = parsed.port;
       if (typeof parsed.openobserve_url === "string") options.openobserve_url = parsed.openobserve_url;
+      if (typeof parsed.openobserve_username === "string") options.openobserve_username = parsed.openobserve_username;
+      if (typeof parsed.openobserve_password === "string") options.openobserve_password = parsed.openobserve_password;
     }
   } catch (_) {}
   if (process.env.PORT != null) options.port = parseInt(process.env.PORT, 10) || options.port;
   if (process.env.OPENOBSERVE_URL != null) options.openobserve_url = process.env.OPENOBSERVE_URL;
+  if (process.env.OPENOBSERVE_USERNAME != null) options.openobserve_username = process.env.OPENOBSERVE_USERNAME;
+  if (process.env.OPENOBSERVE_PASSWORD != null) options.openobserve_password = process.env.OPENOBSERVE_PASSWORD;
   return options;
 }
 
@@ -37,8 +46,12 @@ function sendToSession(sessionId, obj) {
   }
 }
 
-function makeOnLog(openobserveUrl) {
+function makeOnLog(openobserveUrl, username, password) {
   if (!openobserveUrl) return () => {};
+  const headers = { "Content-Type": "application/json" };
+  if (username && password) {
+    headers.Authorization = "Basic " + Buffer.from(username + ":" + password, "utf8").toString("base64");
+  }
   return (payload, level = "info") => {
     const body = JSON.stringify({
       "@timestamp": new Date().toISOString(),
@@ -50,13 +63,17 @@ function makeOnLog(openobserveUrl) {
     });
     fetch(openobserveUrl, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body,
     }).catch(() => {});
   };
 }
 
-const onLog = makeOnLog(options.openobserve_url);
+const onLog = makeOnLog(
+  options.openobserve_url,
+  options.openobserve_username,
+  options.openobserve_password
+);
 
 function scheduleSend(sessionId, payload, delayMs) {
   setTimeout(() => sendToSession(sessionId, payload), delayMs);

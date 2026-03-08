@@ -17,7 +17,7 @@ node server.js
 - WebSocket: ws://localhost:8765/webrtc
 - API: http://localhost:8765/api/clients
 
-Options: set `PORT` and optionally `OPENOBSERVE_URL`, or create `/data/options.json` with `{ "port": 8765, "openobserve_url": "" }`.
+Options: set `PORT` and optionally `OPENOBSERVE_URL` (and `OPENOBSERVE_USERNAME` / `OPENOBSERVE_PASSWORD` for Basic auth), or create `/data/options.json` with `port`, `openobserve_url`, `openobserve_username`, `openobserve_password`.
 
 ## Docker
 
