@@ -20,5 +20,5 @@ options:
   port: 8765
   openobserve_url: ""
 schema:
-  port: "int(8765)?"
+  port: "int(1,65535)?"
   openobserve_url: "str?"
