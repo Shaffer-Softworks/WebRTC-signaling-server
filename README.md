@@ -1,6 +1,8 @@
 # WebRTC Signaling Server (Home Assistant Addon)
 
-Standalone WebRTC signaling server for LAN intercom, with a dashboard. Compatible with the Node-RED "Signaling Router" protocol.
+Standalone WebRTC signaling server for LAN intercom, with a dashboard.
+
+**Repository:** https://github.com/Shaffer-Softworks/WebRTC-signaling-server.git Compatible with the Node-RED "Signaling Router" protocol.
 
 ## Local run
 
