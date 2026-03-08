@@ -1,7 +1,7 @@
-# Base image per architecture (node:20-alpine is multi-arch)
+# Full Docker image path required by Supervisor (node is multi-arch)
 build_from:
-  aarch64: node:20-alpine
-  amd64: node:20-alpine
-  armhf: node:20-alpine
-  armv7: node:20-alpine
-  i386: node:20-alpine
+  aarch64: docker.io/library/node:20-alpine
+  amd64: docker.io/library/node:20-alpine
+  armhf: docker.io/library/node:20-alpine
+  armv7: docker.io/library/node:20-alpine
+  i386: docker.io/library/node:20-alpine
