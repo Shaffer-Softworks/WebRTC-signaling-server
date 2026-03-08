@@ -1,0 +1,24 @@
+# https://developers.home-assistant.io/docs/add-ons/configuration
+name: WebRTC Signaling Server
+version: "1.0.0"
+slug: webrtc_signaling
+description: WebRTC signaling server for LAN intercom with dashboard. Replaces Node-RED signaling flow; compatible with existing clients (register, offer/answer/candidate, hangup, clientsList).
+url: ""
+arch:
+  - aarch64
+  - amd64
+  - armhf
+  - armv7
+  - i386
+init: false
+ports:
+  "8765/tcp": 8765
+ports_description:
+  "8765/tcp": "WebSocket signaling and dashboard"
+map: []
+options:
+  port: 8765
+  openobserve_url: ""
+schema:
+  port: "int(8765)?"
+  openobserve_url: "str?"

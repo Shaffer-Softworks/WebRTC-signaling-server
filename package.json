@@ -1,0 +1,12 @@
+{
+  "name": "webrtc-signaling-addon",
+  "version": "1.0.0",
+  "description": "WebRTC signaling server for LAN intercom with dashboard (Home Assistant addon)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

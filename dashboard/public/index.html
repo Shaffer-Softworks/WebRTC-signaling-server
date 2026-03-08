@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WebRTC Signaling – Dashboard</title>
+  <style>
+    :root {
+      --bg: #1a1b26;
+      --surface: #24283b;
+      --text: #c0caf5;
+      --muted: #565f89;
+      --accent: #7aa2f7;
+      --green: #9ece6a;
+      --orange: #e0af68;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 1.5rem;
+      min-height: 100vh;
+    }
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      margin: 0 0 0.5rem 0;
+      color: var(--text);
+    }
+    .sub {
+      color: var(--muted);
+      font-size: 0.875rem;
+      margin-bottom: 1.5rem;
+    }
+    table {
+      width: 100%;
+      max-width: 48rem;
+      border-collapse: collapse;
+      background: var(--surface);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    th, td {
+      text-align: left;
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--bg);
+    }
+    th {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+      font-weight: 600;
+    }
+    tr:last-child td { border-bottom: none; }
+    .client-id { font-family: ui-monospace, monospace; font-size: 0.9rem; }
+    .display-name { color: var(--muted); }
+    .badge {
+      display: inline-block;
+      padding: 0.2em 0.5em;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+    .badge.in-call { background: var(--orange); color: var(--bg); }
+    .badge.idle { background: var(--muted); color: var(--bg); }
+    .last-activity { font-size: 0.8rem; color: var(--muted); }
+    .empty { padding: 2rem; text-align: center; color: var(--muted); }
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-size: 0.8rem;
+      margin-bottom: 1rem;
+    }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      animation: pulse 2s ease-in-out infinite;
+    }
+    .status.off .status-dot { background: var(--orange); }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+  </style>
+</head>
+<body>
+  <h1>WebRTC Signaling</h1>
+  <p class="sub">Connected clients (LAN intercom). Updates every 3s.</p>
+  <div class="status" id="status">
+    <span class="status-dot"></span>
+    <span id="statusText">Loading…</span>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>Client ID</th>
+        <th>Display name</th>
+        <th>State</th>
+        <th>Last activity</th>
+      </tr>
+    </thead>
+    <tbody id="tbody">
+      <tr><td colspan="4" class="empty">No clients connected</td></tr>
+    </tbody>
+  </table>
+
+  <script>
+    const tbody = document.getElementById("tbody");
+    const statusEl = document.getElementById("status");
+    const statusText = document.getElementById("statusText");
+
+    function formatTime(ms) {
+      if (ms == null) return "—";
+      const d = new Date(ms);
+      const now = Date.now();
+      const diff = Math.floor((now - ms) / 1000);
+      if (diff < 60) return diff + "s ago";
+      if (diff < 3600) return Math.floor(diff / 60) + "m ago";
+      return d.toLocaleTimeString();
+    }
+
+    function render(clients) {
+      if (!clients || clients.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="empty">No clients connected</td></tr>';
+        return;
+      }
+      tbody.innerHTML = clients.map(c => `
+        <tr>
+          <td class="client-id">${escapeHtml(c.clientId)}</td>
+          <td class="display-name">${escapeHtml(c.displayName || "—")}</td>
+          <td><span class="badge ${c.inCall ? "in-call" : "idle"}">${c.inCall ? "In call" : "Idle"}</span></td>
+          <td class="last-activity">${formatTime(c.lastActivity)}</td>
+        </tr>
+      `).join("");
+    }
+
+    function escapeHtml(s) {
+      if (s == null) return "";
+      const div = document.createElement("div");
+      div.textContent = s;
+      return div.innerHTML;
+    }
+
+    function fetchClients() {
+      fetch("/api/clients")
+        .then(r => r.json())
+        .then(data => {
+          statusEl.classList.remove("off");
+          statusText.textContent = (data.clients?.length ?? 0) + " client(s)";
+          render(data.clients || []);
+        })
+        .catch(() => {
+          statusEl.classList.add("off");
+          statusText.textContent = "Failed to load";
+        });
+    }
+
+    fetchClients();
+    setInterval(fetchClients, 3000);
+  </script>
+</body>
+</html>
