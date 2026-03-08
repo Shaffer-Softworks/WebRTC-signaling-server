@@ -9,14 +9,17 @@ Home Assistant add-on repository.
 ## Adding this repository
 
 1. In Home Assistant: **Settings** → **Add-ons** → **Add-on store** → **⋮** → **Repositories**
-2. Add: `https://github.com/Shaffer-Softworks/WebRTC-signaling-server`
-   - On Home Assistant OS, if the add-on doesn’t appear, try adding with the branch: `https://github.com/Shaffer-Softworks/WebRTC-signaling-server#main`
+2. Add: `https://github.com/Shaffer-Softworks/WebRTC-signaling-server#main`  
+   (Use the `#main` branch so the add-on store finds it reliably, especially on Home Assistant OS.)
 3. Click **Add**, then **Reload** (⋮ → Reload) so the store refreshes.
 4. Install **WebRTC Signaling Server** from the list.
 
 ### Add-on still not showing (HA OS)
 
-- **Repo must be public** so the Supervisor can clone it without credentials. If the repo is private, the clone can fail and no add-ons will appear.
-- **Remove and re-add** the repository (⋮ → Repositories → remove the URL → Add again with the URL above).
-- **Check Supervisor logs**: **Settings** → **System** → **Logs** → **Supervisor**. Look for errors about cloning or “repository” (e.g. “Could not clone”, “No repository information”).
-- If you use a **private** repo, you must configure Git credentials on the host (e.g. via an add-on or `/root/.git-credentials`); the in-UI repo URL does not support tokens.
+- **Where to look:** Open **Add-on store** and scroll down. Custom repos often appear at the bottom. Look for the repository name **“Shaffer Softworks Add-ons”** and the add-on **“WebRTC Signaling Server”** under it (not in the main “Official add-ons” list).
+- **Supervisor logs:** **Settings** → **System** → **Logs** → open the **Supervisor** tab. Check for **warnings** (yellow), not only errors. Look for lines like “Can't read … config” or “repository” — those mean a repo or add-on was skipped.
+- **Reload and wait:** Use ⋮ → **Reload**, wait 30 seconds, then scroll the Add-on store again.
+- **Remove and re-add:** In Repositories, remove `https://github.com/Shaffer-Softworks/WebRTC-signaling-server#main`, click **Add** again, paste the same URL, then **Reload**.
+- **Restart Supervisor:** **Settings** → **System** → **Supervisor** → **Restart** (or restart the host). Then open the Add-on store and scroll to find your repo.
+- **Repo must be public** so the Supervisor can clone it without credentials.
+- If you use a **private** repo, you must configure Git credentials on the host; the in-UI repo URL does not support tokens.
