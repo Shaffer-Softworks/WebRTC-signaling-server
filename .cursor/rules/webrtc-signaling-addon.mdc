@@ -1,0 +1,31 @@
+---
+description: WebRTC HA add-on — protocol parity, clients, and where to change code
+globs: webrtc_signaling/**/*
+alwaysApply: false
+---
+
+# WebRTC Signaling add-on
+
+Before changing **protocol**, **session lifecycle**, or **client-visible behavior**, read **`webrtc_signaling/SIGNALING_CONTEXT.md`** end-to-end.
+
+## Invariants
+
+- **Node-RED parity:** Same JSON flow as the legacy WebSocket node (`register`, `registered`, `replaced`, offer/answer/candidate, `hangup`, `unavailable`, `getClients`, `clientsList`, `heartbeat`, etc.). Do not drift message shapes without updating clients and docs.
+- **Zombie sockets:** When the server evicts a session (same `clientId` re-register) or **prunes stale** clients, it must **`terminateSession`** / close that WebSocket — not only delete maps — or clients see `not_registered` on a live socket. Regression coverage: `npm test` → `verify-terminate-parity.test.js`.
+- **Layers:** App stale window **`STALE_CLIENT_MS`** (90s) + app **`heartbeat`**; separate from **`server.js`** WebSocket **ping** (~30s) and **`terminate()`** if no pong.
+
+## Android / RPI client
+
+- ~**30s** application heartbeat; **~20s** Ktor WS ping.
+- On **`replaced`** or **`not_registered`**, client does **full reconnect** (new socket + `register`).
+- Endpoint: **`ws://<host>:<port>/webrtc`** (default **8765**).
+
+## Home Assistant
+
+- Supervisor supplies **`/data/options.json`**: `port`, `openobserve_url`, `openobserve_username`, `openobserve_password`. Image base **Node 20 Alpine** (`build.yaml` / `Dockerfile`).
+- User-facing URLs: dashboard **`/`**, WebSocket **`/webrtc`**, JSON **`/api/clients`**.
+
+## Repo layout
+
+- **`signaling.js`** — router, maps, prune, routing. **`server.js`** — HTTP, WS server, sessions, ping sweep, OpenObserve hook.
+- Install / store docs: root **`README.md`**; add-on dev quickstart: **`webrtc_signaling/README.md`**.

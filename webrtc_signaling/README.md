@@ -2,7 +2,8 @@
 
 Home Assistant add-on: a standalone WebSocket signaling server for LAN intercom, with a dashboard. It implements the same **Direct-Calling Signaling Router** flow as the legacy Node-RED WebSocket node (`register`, `registered`, `replaced`, `offer`, `answer`, `candidate`, `hangup`, `unavailable`, `getClients`, `clientsList`, `heartbeat`, etc.).
 
-**Deep dive** (Android client behavior, Node-RED parity, operations, tests): [SIGNALING_CONTEXT.md](./SIGNALING_CONTEXT.md)
+**Deep dive** (Android client behavior, Node-RED parity, operations, tests): [SIGNALING_CONTEXT.md](./SIGNALING_CONTEXT.md)  
+**Cursor:** [`.cursor/rules/webrtc-signaling-addon.mdc`](../.cursor/rules/webrtc-signaling-addon.mdc) (applies when editing files under `webrtc_signaling/`)
 
 **Install via Home Assistant:** [Repository README](../README.md) (custom repo URL and troubleshooting).
 

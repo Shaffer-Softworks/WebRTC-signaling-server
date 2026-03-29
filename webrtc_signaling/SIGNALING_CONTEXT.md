@@ -1,5 +1,7 @@
 # Signaling design and client context
 
+**Cursor:** With files under `webrtc_signaling/` open, the agent rule [`.cursor/rules/webrtc-signaling-addon.mdc`](../.cursor/rules/webrtc-signaling-addon.mdc) summarizes scope and invariants (full detail stays in this file).
+
 ## Repository scope
 
 Signaling server work (protocol, tests, ops behavior) lives in this repo under **`webrtc_signaling/`** (`package.json` name: `webrtc-signaling-addon`). The canonical GitHub tree is **[WebRTC-signaling-server](https://github.com/Shaffer-Softworks/WebRTC-signaling-server)**.
