@@ -36,7 +36,7 @@ Additionally, **`server.js`** runs a **~30s WebSocket ping** sweep and **`termin
 
 | Topic | Node-RED | This add-on |
 |--------|------------|-------------|
-| OpenObserve | Often `node_red` stream | Same ingest URL; payload uses `tag: "webrtc"` / `service: "webrtc-signaling"` — adjust stream routing in OpenObserve if needed |
+| OpenObserve | Often `node_red` stream | Ingest URL + optional **Basic auth** (`openobserve_username` / `openobserve_password`); payload uses `tag: "webrtc"` / `service: "webrtc-signaling"` — adjust stream routing in OpenObserve if needed |
 | Client roster over MQTT | Sometimes a side flow | No MQTT; use **`GET /api/clients`** or a small bridge if you need MQTT |
 | Dashboard | Debug / flow context | **`/`** and **`/api/clients`** |
 
@@ -62,3 +62,19 @@ docker run --rm -v "$(pwd):/app" -w /app node:20-alpine sh -c "npm install --sil
 | `signaling.js` | Protocol router, `clientId` ↔ session maps, stale prune, message routing |
 | `server.js` | HTTP static + API, `WebSocketServer` on `/webrtc`, sessions, ping sweep, OpenObserve hook |
 | `verify-terminate-parity.test.js` | Regression: `terminateSession` on eviction and stale prune |
+
+## Home Assistant add-on (Supervisor) — saved context
+
+Repo URL: **[Shaffer-Softworks/WebRTC-signaling-server](https://github.com/Shaffer-Softworks/WebRTC-signaling-server)**. Add in the store as `https://github.com/Shaffer-Softworks/WebRTC-signaling-server#main`.
+
+| Topic | Requirement / pitfall |
+|--------|------------------------|
+| **Layout** | Root **`repository.yaml`**; add-on folder **`webrtc_signaling/`** must match **`slug: webrtc_signaling`** in `config.yaml`. |
+| **Schema** | Option types use Supervisor regex. Port: **`int(1,65535)?`** (not `int(8765)?`). Optional strings: **`str?`**; optional password: **`password?`**. |
+| **`build.yaml`** | **`build_from`** must be full image refs (e.g. **`docker.io/library/node:20-alpine`**). Short names like `node:20-alpine` are rejected; Supervisor then falls back to HA base (no npm). |
+| **Dockerfile** | **`ARG BUILD_FROM`** / **`FROM $BUILD_FROM`**; default **`node:20-alpine`** for local builds. Use **`npm install --omit=dev`** (no **`package-lock.json`** → **`npm ci`** fails). |
+| **Options** | **`/data/options.json`**: `port`, `openobserve_url`, `openobserve_username`, `openobserve_password`. Env: `PORT`, `OPENOBSERVE_*`. Ingest sends **Basic auth** when username and password are both set. |
+| **`icon.png`** | Must be a valid PNG (meaningful size); tiny placeholder PNGs break in the store UI. |
+| **Store UI** | Custom add-ons appear **at the bottom** of the add-on store. Parse failures often log as **WARNING** in Supervisor logs, not ERROR. |
+
+Editor/agent invariants: **`.cursor/rules/webrtc-signaling-addon.mdc`**. User-facing install notes: root **`README.md`**; add-on quickstart: **`webrtc_signaling/README.md`**.

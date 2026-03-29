@@ -22,8 +22,9 @@ Before changing **protocol**, **session lifecycle**, or **client-visible behavio
 
 ## Home Assistant
 
-- Supervisor supplies **`/data/options.json`**: `port`, `openobserve_url`, `openobserve_username`, `openobserve_password`. Image base **Node 20 Alpine** (`build.yaml` / `Dockerfile`).
+- Supervisor supplies **`/data/options.json`**: `port`, `openobserve_url`, `openobserve_username`, `openobserve_password` (Basic auth when both user and password set). Image base **Node 20 Alpine** (`build.yaml` / `Dockerfile`).
 - User-facing URLs: dashboard **`/`**, WebSocket **`/webrtc`**, JSON **`/api/clients`**.
+- **Supervisor packaging** (schema, `build.yaml` image paths, store URL `#main`, icon): see **`webrtc_signaling/SIGNALING_CONTEXT.md`** → *Home Assistant add-on (Supervisor) — saved context*.
 
 ## Repo layout
 
