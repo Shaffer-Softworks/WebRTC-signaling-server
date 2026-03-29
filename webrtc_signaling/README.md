@@ -6,6 +6,8 @@ Standalone WebRTC signaling server for LAN intercom, with a dashboard.
 
 Implements the same **Direct-Calling Signaling Router** protocol as the Node-RED WebSocket function node (register, registered, offer/answer/candidate, hangup, unavailable, getClients, clientsList, heartbeat; same data structures and stale pruning).
 
+**Design notes, Android client expectations, Node-RED parity, and testing:** see [SIGNALING_CONTEXT.md](./SIGNALING_CONTEXT.md). **Cursor:** use the repo rule [`.cursor/rules/webrtc-signaling-addon.mdc`](../.cursor/rules/webrtc-signaling-addon.mdc) when this add-on folder is the workspace (or open the WebRTC-signaling-server repo root).
+
 ## Local run
 
 ```bash

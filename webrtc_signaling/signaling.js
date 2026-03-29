@@ -18,13 +18,18 @@
  *
  * Stale cleanup: Clients with no activity for STALE_CLIENT_MS are pruned before
  * each clientsList broadcast, so devices that disconnect without a proper close
- * do not stay in the list.
+ * do not stay in the list. Pruned sockets are terminated server-side (avoids zombies).
  */
 
 /** Max idle time (ms) before a client is considered offline and pruned from the list. */
 const STALE_CLIENT_MS = 90000;
 
-function createSignaling() {
+/**
+ * @param {{ terminateSession?: (sessionId: string) => void }} [options]
+ */
+function createSignaling(options = {}) {
+  const terminateSession = typeof options.terminateSession === "function" ? options.terminateSession : () => {};
+
   const clients = {};
   const sessInfo = {};
 
@@ -39,6 +44,7 @@ function createSignaling() {
           if (cid && clients[cid] === sid) delete clients[cid];
           pruned = true;
         }
+        terminateSession(sid);
         delete sessInfo[sid];
         pruned = true;
       }
@@ -104,6 +110,7 @@ function createSignaling() {
 
       if (oldSessId && oldSessId !== sessionId) {
         sendToSession(oldSessId, { type: "replaced", bySession: sessionId });
+        terminateSession(oldSessId);
         delete sessInfo[oldSessId];
       }
 

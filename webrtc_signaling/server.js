@@ -32,8 +32,20 @@ function loadOptions() {
 }
 
 const options = loadOptions();
-const signaling = createSignaling();
 const sessions = new Map();
+
+/** Force-close a WebSocket by session id (parity with Node-RED tryCloseWebSocketSession on eviction/prune). */
+function terminateSession(sessionId) {
+  const ws = sessions.get(sessionId);
+  if (!ws) return;
+  try {
+    ws.terminate();
+  } catch (e) {
+    console.warn("terminateSession:", e.message);
+  }
+}
+
+const signaling = createSignaling({ terminateSession });
 
 function sendToSession(sessionId, obj) {
   const ws = sessions.get(sessionId);

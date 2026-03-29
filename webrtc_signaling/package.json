@@ -5,7 +5,8 @@
   "repository": "https://github.com/Shaffer-Softworks/WebRTC-signaling-server.git",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "node verify-terminate-parity.test.js"
   },
   "dependencies": {
     "ws": "^8.18.0"
