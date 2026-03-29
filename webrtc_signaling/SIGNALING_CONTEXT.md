@@ -1,66 +1,62 @@
-# WebRTC signaling — design and client context
+# Signaling design and client context
 
-## Where to make changes (**this repo only**)
+## Repository scope
 
-**All standalone signaling server work** (protocol, fixes, tests, ops docs, Cursor rules for this add-on) belongs in **[WebRTC-signaling-server](https://github.com/Shaffer-Softworks/WebRTC-signaling-server)** under **`webrtc_signaling/`** (npm package name **webrtc-signaling-addon**). Do not implement or document the add-on server inside the **RPI** Android repo for that purpose; RPI keeps a **Node-RED export** (`node-red/nodered-signaling-server.js`, etc.) only as a **legacy reference** for the same protocol.
+Signaling server work (protocol, tests, ops behavior) lives in this repo under **`webrtc_signaling/`** (`package.json` name: `webrtc-signaling-addon`). The canonical GitHub tree is **[WebRTC-signaling-server](https://github.com/Shaffer-Softworks/WebRTC-signaling-server)**.
 
-Long-form agent/editor guidance for **this** project: [`.cursor/rules/webrtc-signaling-addon.mdc`](../.cursor/rules/webrtc-signaling-addon.mdc) (open this repository in Cursor).
+Do **not** treat the **RPI** Android repo as the source of truth for this server; it keeps a **Node-RED export** (e.g. `node-red/nodered-signaling-server.js`) only as a **legacy reference** for the same JSON protocol.
 
----
+## Android client (RPI intercom)
 
-This add-on implements the **Direct-Calling Signaling Router** protocol so it can **replace the Node-RED WebSocket flow** used for LAN intercom signaling. Node-RED reference script (sibling repo **RPI**): `node-red/nodered-signaling-server.js`.
+The app uses the same message types as this server, including `replaced` and application-level `heartbeat`. Registration sends `displayName`; the server responds with `registered` and may send `replaced` when the same `clientId` attaches to a new session.
 
-## Client: Android (RPI intercom)
+**Server authors should keep in mind:**
 
-The Kotlin app uses the same JSON message types (`register`, `registered`, `replaced`, `offer`, `answer`, `candidate`, `hangup`, `unavailable`, `error`, `getClients`, `clientsList`, `heartbeat`). Registration includes `displayName`; the server echoes `clientId` in `registered` and may send `replaced` when the same `clientId` connects from a new WebSocket session.
+| Behavior | Detail |
+|----------|--------|
+| Ktor WebSocket ping | ~20s toward the server (layer responds with pong) |
+| App heartbeat | ~every 30s — keeps the session inside the server’s **90s** stale window (`STALE_CLIENT_MS` in `signaling.js`) |
+| `replaced` / `not_registered` | App does a **full signaling reconnect** (new socket + `register`) instead of retrying on a half-valid session |
 
-**Client behavior to be aware of when changing the server:**
+Target URL: **`ws://<host>:<port>/webrtc`** (default port **8765**).
 
-- **Ktor WebSocket** signaling client uses a **~20s WebSocket ping** toward the server (responds with pong at the `ws` layer).
-- **Application heartbeat** is sent about every **30s** so sessions stay within the server’s **90s** stale window (`STALE_CLIENT_MS` in `signaling.js`).
-- On **`replaced`** or **`not_registered`**, the app performs a **full signaling reconnect** (unregister path + new connection + `register`) so it does not spin on a half-valid socket.
+## Parity with Node-RED (zombies / `not_registered`)
 
-Point the app at **`ws://<host>:<port>/webrtc`** (default port **8765** from add-on config).
+**Problem:** The server dropped a session from its maps (re-register eviction or stale prune) but the **old WebSocket stayed open**. The client kept sending; the server replied **`not_registered`**.
 
-## Parity with Node-RED (zombie / `not_registered`)
+**Node-RED approach:** `tryCloseWebSocketSession()` when evicting the old session and when pruning stale entries.
 
-A failure mode seen with Node-RED was: server **removed** a session from its maps (re-register eviction or stale prune) but the **old TCP/WebSocket stayed open**. The client kept sending; the server answered **`not_registered`**.
+**This add-on:** `server.js` injects **`terminateSession(sessionId)`** into `createSignaling()`. **`signaling.js`** calls it on same-`clientId` eviction and inside **`pruneStaleClients`**. That matches the Node-RED intent.
 
-**Node-RED fix:** `tryCloseWebSocketSession()` when evicting an old session after `replaced` and when pruning stale sessions.
-
-**This add-on:** `server.js` passes **`terminateSession(sessionId)`** into `createSignaling()`. **`signaling.js`** calls it on **same-`clientId` eviction** and inside **`pruneStaleClients`**. That matches the Node-RED intent: drop the socket when server state no longer tracks that session.
-
-Separately, **`server.js`** runs a **30s WebSocket ping** loop and **`terminate()`**s clients that do not pong — useful for **half-open** links; it does not replace the app-level stale roster + **`terminateSession`** behavior above.
+Additionally, **`server.js`** runs a **~30s WebSocket ping** sweep and **`terminate()`**s sockets that do not pong (half-open links). That is separate from app-level stale roster + **`terminateSession`**.
 
 ## Operations vs Node-RED
 
-| Topic | Node-RED flow | This add-on |
-|--------|----------------|-------------|
-| OpenObserve | Often stream `node_red` | Same HTTP ingest URL works; body uses `tag: "webrtc"` / `service: webrtc-signaling` — align stream name in OpenObserve if you want separation. |
-| HA client roster over MQTT | Side flow (e.g. `webrtc/signaling/clients`) | No MQTT. Use **`GET /api/clients`** from an automation or a small publisher if you need MQTT. |
-| Dashboard / roster | Flow context + debug | **`/`** dashboard, **`/api/clients`** JSON. |
+| Topic | Node-RED | This add-on |
+|--------|------------|-------------|
+| OpenObserve | Often `node_red` stream | Same ingest URL; payload uses `tag: "webrtc"` / `service: "webrtc-signaling"` — adjust stream routing in OpenObserve if needed |
+| Client roster over MQTT | Sometimes a side flow | No MQTT; use **`GET /api/clients`** or a small bridge if you need MQTT |
+| Dashboard | Debug / flow context | **`/`** and **`/api/clients`** |
 
 ## Testing
-
-**Unit-style parity checks** (eviction + stale prune call `terminateSession`):
 
 ```bash
 npm install
 npm test
 ```
 
-**Without local Node**, e.g. Docker:
+**Without a local Node install** (matches the add-on base image):
 
 ```bash
-docker run --rm -v "$(pwd):/app" -w /app node:22-alpine sh -c "npm install --silent && npm test"
+docker run --rm -v "$(pwd):/app" -w /app node:20-alpine sh -c "npm install --silent && npm test"
 ```
 
-End-to-end: run `node server.js`, connect two WebSockets to `/webrtc`, register the same `clientId` twice; the first connection should close after `replaced`, and logs should show a normal WebSocket close for that session.
+**Manual check:** Run `node server.js`, open two clients on `/webrtc`, register the same `clientId` twice; the first connection should receive `replaced` and close, with a normal close in the server log.
 
-## Files
+## Source files
 
 | File | Role |
 |------|------|
-| `signaling.js` | Protocol router, maps `clientId` ↔ session id, prune, routing. |
-| `server.js` | HTTP + `ws` WebSocketServer on `/webrtc`, session map, ping sweep, OpenObserve logging hook. |
-| `verify-terminate-parity.test.js` | Regression tests for `terminateSession` on eviction and prune. |
+| `signaling.js` | Protocol router, `clientId` ↔ session maps, stale prune, message routing |
+| `server.js` | HTTP static + API, `WebSocketServer` on `/webrtc`, sessions, ping sweep, OpenObserve hook |
+| `verify-terminate-parity.test.js` | Regression: `terminateSession` on eviction and stale prune |
