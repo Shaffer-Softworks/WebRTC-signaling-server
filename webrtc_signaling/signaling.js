@@ -203,6 +203,10 @@ function createSignaling(options = {}) {
       return {};
     }
 
+    if (data.type === "pong") {
+      return {};
+    }
+
     onLog({ type: "unknown_message", messageType: data.type }, "debug");
     return {};
   }
