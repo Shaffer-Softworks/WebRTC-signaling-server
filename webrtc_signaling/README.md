@@ -15,7 +15,7 @@ Home Assistant add-on: a standalone WebSocket signaling server for LAN intercom,
 |------|----------|
 | Dashboard | `http://<host>:<port>/` |
 | WebSocket | `ws://<host>:<port>/webrtc` |
-| Client list (JSON) | `http://<host>:<port>/api/clients` |
+| Client list (JSON) | `http://<host>:<port>/api/clients` (response includes `meta`: process + host metrics for the dashboard — see [SIGNALING_CONTEXT.md](./SIGNALING_CONTEXT.md)) |
 
 Default port **8765** (configurable in the add-on options).
 

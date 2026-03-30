@@ -5,112 +5,524 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>WebRTC Signaling – Dashboard</title>
   <style>
+    /*
+     * Brand theme — edit these to match your website (paste hex from your CSS or design tokens).
+     * Tip: set --accent to your link/brand color; --bg-* to page and card backgrounds.
+     */
     :root {
-      --bg: #1a1b26;
-      --surface: #24283b;
-      --text: #c0caf5;
-      --muted: #565f89;
-      --accent: #7aa2f7;
-      --green: #9ece6a;
-      --orange: #e0af68;
+      --bg-base: #070a0f;
+      --bg-elevated: #0d1219;
+      --bg-card: #111923;
+      --border: rgba(180, 198, 220, 0.1);
+      --border-strong: rgba(180, 198, 220, 0.18);
+      --text: #e6edf5;
+      --text-muted: #8a9bb0;
+      --accent: #4f9eff;
+      --accent-hover: #7ab6ff;
+      --accent-muted: rgba(79, 158, 255, 0.14);
+      --success: #3ecf8e;
+      --success-muted: rgba(62, 207, 142, 0.14);
+      --warning: #e8b84a;
+      --warning-muted: rgba(232, 184, 74, 0.16);
+      --danger: #f07178;
+      --radius: 12px;
+      --radius-sm: 8px;
+      --shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+      --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      --font-mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
     }
-    * { box-sizing: border-box; }
+
+    *, *::before, *::after { box-sizing: border-box; }
+
     body {
-      font-family: system-ui, -apple-system, sans-serif;
-      background: var(--bg);
-      color: var(--text);
       margin: 0;
-      padding: 1.5rem;
       min-height: 100vh;
+      font-family: var(--font-sans);
+      font-size: 15px;
+      line-height: 1.5;
+      color: var(--text);
+      background:
+        radial-gradient(ellipse 120% 80% at 50% -20%, var(--accent-muted), transparent 55%),
+        var(--bg-base);
     }
+
+    .wrap {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 1.75rem 1.25rem 3rem;
+    }
+
+    header.masthead {
+      margin-bottom: 1.75rem;
+    }
+
+    .masthead-top {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+
     h1 {
       font-size: 1.5rem;
-      font-weight: 600;
-      margin: 0 0 0.5rem 0;
+      font-weight: 650;
+      letter-spacing: -0.02em;
+      margin: 0 0 0.35rem 0;
+    }
+
+    .tagline {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      max-width: 36rem;
+      margin: 0;
+    }
+
+    .live-meta {
+      text-align: right;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .live-meta strong {
       color: var(--text);
-    }
-    .sub {
-      color: var(--muted);
-      font-size: 0.875rem;
-      margin-bottom: 1.5rem;
-    }
-    table {
-      width: 100%;
-      max-width: 48rem;
-      border-collapse: collapse;
-      background: var(--surface);
-      border-radius: 8px;
-      overflow: hidden;
-    }
-    th, td {
-      text-align: left;
-      padding: 0.75rem 1rem;
-      border-bottom: 1px solid var(--bg);
-    }
-    th {
-      font-size: 0.75rem;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: var(--muted);
-      font-weight: 600;
-    }
-    tr:last-child td { border-bottom: none; }
-    .client-id { font-family: ui-monospace, monospace; font-size: 0.9rem; }
-    .display-name { color: var(--muted); }
-    .badge {
-      display: inline-block;
-      padding: 0.2em 0.5em;
-      border-radius: 4px;
-      font-size: 0.75rem;
       font-weight: 500;
     }
-    .badge.in-call { background: var(--orange); color: var(--bg); }
-    .badge.idle { background: var(--muted); color: var(--bg); }
-    .last-activity { font-size: 0.8rem; color: var(--muted); }
-    .empty { padding: 2rem; text-align: center; color: var(--muted); }
-    .status {
+
+    .status-pill {
       display: inline-flex;
       align-items: center;
-      gap: 0.35rem;
+      gap: 0.4rem;
+      margin-top: 0.5rem;
+      padding: 0.35rem 0.65rem;
+      border-radius: 999px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
       font-size: 0.8rem;
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--success);
+      box-shadow: 0 0 10px var(--success);
+    }
+
+    .status-pill.off .status-dot {
+      background: var(--warning);
+      box-shadow: none;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 0.85rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .stat {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem 1.1rem;
+      box-shadow: var(--shadow);
+    }
+
+    .stat-label {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      margin-bottom: 0.25rem;
+    }
+
+    .stat-value {
+      font-size: 1.65rem;
+      font-weight: 650;
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+    }
+
+    .stat-hint {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 0.35rem;
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.65rem;
       margin-bottom: 1rem;
     }
-    .status-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: var(--green);
-      animation: pulse 2s ease-in-out infinite;
+
+    .search-wrap {
+      flex: 1 1 200px;
+      min-width: 0;
     }
-    .status.off .status-dot { background: var(--orange); }
-    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+    .search-wrap input {
+      width: 100%;
+      padding: 0.55rem 0.75rem;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      background: var(--bg-elevated);
+      color: var(--text);
+      font: inherit;
+    }
+
+    .search-wrap input::placeholder {
+      color: var(--text-muted);
+    }
+
+    .search-wrap input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-muted);
+    }
+
+    .btn, select.interval {
+      font: inherit;
+      font-size: 0.85rem;
+      padding: 0.5rem 0.85rem;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-strong);
+      background: var(--bg-elevated);
+      color: var(--text);
+      cursor: pointer;
+    }
+
+    .btn:hover, select.interval:hover {
+      border-color: var(--accent);
+      color: var(--accent-hover);
+    }
+
+    .btn:focus-visible, select.interval:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 3px var(--accent-muted);
+    }
+
+    .btn-primary {
+      background: var(--accent-muted);
+      border-color: rgba(79, 158, 255, 0.35);
+      color: var(--accent-hover);
+    }
+
+    .btn-primary:hover {
+      background: rgba(79, 158, 255, 0.22);
+    }
+
+    .btn-ghost {
+      background: transparent;
+    }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: var(--shadow);
+    }
+
+    .table-scroll {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 560px;
+    }
+
+    th, td {
+      text-align: left;
+      padding: 0.8rem 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    th {
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--text-muted);
+      font-weight: 600;
+      background: var(--bg-elevated);
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    tr:hover td {
+      background: rgba(79, 158, 255, 0.04);
+    }
+
+    .client-id {
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+    }
+
+    .cell-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      flex-wrap: wrap;
+    }
+
+    .btn-icon {
+      padding: 0.25rem 0.45rem;
+      font-size: 0.72rem;
+      border-radius: 6px;
+    }
+
+    .display-name {
+      color: var(--text-muted);
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 0.2em 0.55em;
+      border-radius: 6px;
+      font-size: 0.72rem;
+      font-weight: 600;
+    }
+
+    .badge.in-call {
+      background: var(--warning-muted);
+      color: var(--warning);
+    }
+
+    .badge.idle {
+      background: rgba(138, 155, 176, 0.15);
+      color: var(--text-muted);
+    }
+
+    .peer {
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+
+    .last-activity {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .empty {
+      padding: 2.5rem 1.5rem;
+      text-align: center;
+      color: var(--text-muted);
+    }
+
+    .endpoints {
+      margin-top: 1.5rem;
+      padding: 1rem 1.1rem;
+      border-radius: var(--radius-sm);
+      border: 1px dashed var(--border-strong);
+      background: var(--bg-elevated);
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .endpoints code {
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      color: var(--accent-hover);
+      word-break: break-all;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 1.25rem;
+      right: 1.25rem;
+      padding: 0.6rem 1rem;
+      border-radius: var(--radius-sm);
+      background: var(--bg-card);
+      border: 1px solid var(--border-strong);
+      color: var(--text);
+      font-size: 0.85rem;
+      box-shadow: var(--shadow);
+      opacity: 0;
+      transform: translateY(8px);
+      pointer-events: none;
+      transition: opacity 0.2s, transform 0.2s;
+      z-index: 50;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .status-dot { animation: none; }
+      .toast { transition: none; }
+    }
+
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.45; }
+    }
+
+    .status-pill:not(.off) .status-dot {
+      animation: pulse-dot 2.2s ease-in-out infinite;
+    }
   </style>
 </head>
 <body>
-  <h1>WebRTC Signaling</h1>
-  <p class="sub">Connected clients (LAN intercom). Updates every 3s.</p>
-  <div class="status" id="status">
-    <span class="status-dot"></span>
-    <span id="statusText">Loading…</span>
+  <div class="wrap">
+    <header class="masthead">
+      <div class="masthead-top">
+        <div>
+          <h1>WebRTC signaling</h1>
+          <p class="tagline">Live roster for your LAN intercom. Data refreshes on a schedule; use search and export for quick checks.</p>
+          <div class="status-pill" id="statusPill" aria-live="polite">
+            <span class="status-dot" aria-hidden="true"></span>
+            <span id="statusText">Loading…</span>
+          </div>
+        </div>
+        <div class="live-meta">
+          <div>Last update: <strong id="lastUpdated">—</strong></div>
+          <div>Stale after: <strong id="staleMs">—</strong></div>
+        </div>
+      </div>
+    </header>
+
+    <section class="stats" aria-label="Summary">
+      <div class="stat">
+        <div class="stat-label">Registered clients</div>
+        <div class="stat-value" id="statClients">0</div>
+        <div class="stat-hint">After heartbeat / register</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">In a call</div>
+        <div class="stat-value" id="statInCall">0</div>
+        <div class="stat-hint">Active offer / session</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">WebSocket sessions</div>
+        <div class="stat-value" id="statWs">0</div>
+        <div class="stat-hint">Open connections</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Process CPU</div>
+        <div class="stat-value" id="statCpu">—</div>
+        <div class="stat-hint">Since last refresh (≈1 core)</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Process RAM</div>
+        <div class="stat-value" id="statRam">—</div>
+        <div class="stat-hint" id="statRamHeap">RSS resident</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Host CPU</div>
+        <div class="stat-value" id="statHostCpu">—</div>
+        <div class="stat-hint" id="statHostCpuHint">os.cpus() since last refresh</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Host memory</div>
+        <div class="stat-value" id="statHost">—</div>
+        <div class="stat-hint" id="statHostHint">Node os; Docker may show host or cgroup limits</div>
+      </div>
+    </section>
+
+    <div class="toolbar">
+      <div class="search-wrap">
+        <label class="visually-hidden" for="filter">Filter clients</label>
+        <input type="search" id="filter" placeholder="Filter by client ID, name, or peer…" autocomplete="off">
+      </div>
+      <label>
+        <span class="visually-hidden">Refresh interval</span>
+        <select class="interval" id="interval" title="Refresh interval">
+          <option value="3000" selected>Every 3s</option>
+          <option value="5000">Every 5s</option>
+          <option value="10000">Every 10s</option>
+          <option value="0">Paused</option>
+        </select>
+      </label>
+      <button type="button" class="btn btn-primary" id="btnRefresh">Refresh now</button>
+      <button type="button" class="btn" id="btnExport">Export JSON</button>
+    </div>
+
+    <div class="card">
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Client ID</th>
+              <th scope="col">Display name</th>
+              <th scope="col">State</th>
+              <th scope="col">With</th>
+              <th scope="col">Last activity</th>
+            </tr>
+          </thead>
+          <tbody id="tbody">
+            <tr><td colspan="5" class="empty">No clients connected</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="endpoints">
+      <strong style="color: var(--text);">Endpoints</strong> — WebSocket: <code id="epWs"></code> · JSON: <code id="epApi"></code>
+    </div>
   </div>
-  <table>
-    <thead>
-      <tr>
-        <th>Client ID</th>
-        <th>Display name</th>
-        <th>State</th>
-        <th>Last activity</th>
-      </tr>
-    </thead>
-    <tbody id="tbody">
-      <tr><td colspan="4" class="empty">No clients connected</td></tr>
-    </tbody>
-  </table>
+
+  <div class="toast" id="toast" role="status"></div>
+
+  <style>
+    .visually-hidden {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+  </style>
 
   <script>
     const tbody = document.getElementById("tbody");
-    const statusEl = document.getElementById("status");
+    const statusPill = document.getElementById("statusPill");
     const statusText = document.getElementById("statusText");
+    const lastUpdated = document.getElementById("lastUpdated");
+    const staleMsEl = document.getElementById("staleMs");
+    const statClients = document.getElementById("statClients");
+    const statInCall = document.getElementById("statInCall");
+    const statWs = document.getElementById("statWs");
+    const statCpu = document.getElementById("statCpu");
+    const statRam = document.getElementById("statRam");
+    const statRamHeap = document.getElementById("statRamHeap");
+    const statHostCpu = document.getElementById("statHostCpu");
+    const statHostCpuHint = document.getElementById("statHostCpuHint");
+    const statHost = document.getElementById("statHost");
+    const statHostHint = document.getElementById("statHostHint");
+    const filterInput = document.getElementById("filter");
+    const intervalSelect = document.getElementById("interval");
+    const btnRefresh = document.getElementById("btnRefresh");
+    const btnExport = document.getElementById("btnExport");
+    const toast = document.getElementById("toast");
+    const epWs = document.getElementById("epWs");
+    const epApi = document.getElementById("epApi");
+
+    const origin = window.location.origin.replace(/^http/, "ws");
+    epWs.textContent = origin + "/webrtc";
+    epApi.textContent = window.location.origin + "/api/clients";
+
+    let lastPayload = null;
+    let pollTimer = null;
+
+    function showToast(msg) {
+      toast.textContent = msg;
+      toast.classList.add("show");
+      clearTimeout(showToast._t);
+      showToast._t = setTimeout(() => toast.classList.remove("show"), 2200);
+    }
 
     function formatTime(ms) {
       if (ms == null) return "—";
@@ -122,19 +534,18 @@
       return d.toLocaleTimeString();
     }
 
-    function render(clients) {
-      if (!clients || clients.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" class="empty">No clients connected</td></tr>';
-        return;
-      }
-      tbody.innerHTML = clients.map(c => `
-        <tr>
-          <td class="client-id">${escapeHtml(c.clientId)}</td>
-          <td class="display-name">${escapeHtml(c.displayName || "—")}</td>
-          <td><span class="badge ${c.inCall ? "in-call" : "idle"}">${c.inCall ? "In call" : "Idle"}</span></td>
-          <td class="last-activity">${formatTime(c.lastActivity)}</td>
-        </tr>
-      `).join("");
+    function formatStaleMs(ms) {
+      if (ms == null || ms === undefined) return "—";
+      if (ms >= 60000) return Math.round(ms / 60000) + " min";
+      return Math.round(ms / 1000) + "s";
+    }
+
+    function formatBytes(n) {
+      if (n == null || n === undefined || typeof n !== "number") return "—";
+      if (n < 1024) return n + " B";
+      if (n < 1048576) return (n / 1024).toFixed(1) + " KB";
+      if (n < 1073741824) return (n / 1048576).toFixed(1) + " MB";
+      return (n / 1073741824).toFixed(1) + " GB";
     }
 
     function escapeHtml(s) {
@@ -144,22 +555,169 @@
       return div.innerHTML;
     }
 
+    function escapeAttr(s) {
+      if (s == null) return "";
+      return String(s)
+        .replace(/&/g, "&amp;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
+    function matchesFilter(c, q) {
+      if (!q) return true;
+      const hay = [
+        c.clientId,
+        c.displayName,
+        c.inCallWith,
+      ].filter(Boolean).join(" ").toLowerCase();
+      return hay.includes(q);
+    }
+
+    function renderTable(clients) {
+      const q = (filterInput.value || "").trim().toLowerCase();
+      const list = (clients || []).filter((c) => matchesFilter(c, q));
+
+      if (!list.length) {
+        tbody.innerHTML =
+          '<tr><td colspan="5" class="empty">' +
+          (clients && clients.length ? "No rows match your filter" : "No clients connected") +
+          "</td></tr>";
+        return;
+      }
+
+      tbody.innerHTML = list
+        .map(
+          (c) => `
+        <tr>
+          <td class="client-id">
+            <div class="cell-actions">
+              <span>${escapeHtml(c.clientId)}</span>
+              <button type="button" class="btn btn-icon btn-ghost" data-copy="${escapeAttr(c.clientId)}" title="Copy client ID">Copy</button>
+            </div>
+          </td>
+          <td class="display-name">${escapeHtml(c.displayName || "—")}</td>
+          <td><span class="badge ${c.inCall ? "in-call" : "idle"}">${c.inCall ? "In call" : "Idle"}</span></td>
+          <td class="peer">${escapeHtml(c.inCallWith || "—")}</td>
+          <td class="last-activity">${formatTime(c.lastActivity)}</td>
+        </tr>
+      `
+        )
+        .join("");
+
+      tbody.querySelectorAll("button[data-copy]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const id = btn.getAttribute("data-copy");
+          navigator.clipboard.writeText(id).then(
+            () => showToast("Copied client ID"),
+            () => showToast("Copy failed")
+          );
+        });
+      });
+    }
+
+    function applyPayload(data) {
+      lastPayload = data;
+      const clients = data.clients || [];
+      const meta = data.meta || {};
+
+      statusPill.classList.remove("off");
+      statusText.textContent = clients.length + " client(s) online";
+
+      statClients.textContent = String(clients.length);
+      statInCall.textContent = String(clients.filter((c) => c.inCall).length);
+      statWs.textContent = String(meta.wsConnections ?? "—");
+
+      const proc = meta.process || {};
+      statCpu.textContent =
+        proc.cpuPercent != null && typeof proc.cpuPercent === "number"
+          ? proc.cpuPercent + "%"
+          : "—";
+      statRam.textContent = formatBytes(proc.rssBytes);
+      statRamHeap.textContent =
+        proc.heapUsedBytes != null && proc.heapTotalBytes != null
+          ? "Heap " + formatBytes(proc.heapUsedBytes) + " / " + formatBytes(proc.heapTotalBytes)
+          : "RSS resident";
+
+      const hc = meta.hostCpu;
+      if (hc && hc.cpuPercent != null && typeof hc.cpuPercent === "number") {
+        statHostCpu.textContent = hc.cpuPercent + "%";
+        const n = hc.logicalCores;
+        statHostCpuHint.textContent =
+          (typeof n === "number" ? n + " logical cores · " : "") +
+          "Busy vs idle ticks · Docker often shows the VM/host";
+      } else {
+        statHostCpu.textContent = "—";
+        statHostCpuHint.textContent = "os.cpus(); second poll shows %";
+      }
+
+      const hm = meta.hostMemory;
+      if (hm && typeof hm.totalBytes === "number" && hm.totalBytes > 0 && typeof hm.freeBytes === "number") {
+        const used = hm.totalBytes - hm.freeBytes;
+        const pct = Math.round((used / hm.totalBytes) * 100);
+        statHost.textContent = pct + "% used";
+        statHostHint.textContent =
+          formatBytes(hm.freeBytes) +
+          " free · " +
+          formatBytes(hm.totalBytes) +
+          " total · Node os (Docker: host vs limits varies)";
+      } else {
+        statHost.textContent = "—";
+        statHostHint.textContent = "Node os; Docker may show host or cgroup limits";
+      }
+
+      staleMsEl.textContent = formatStaleMs(meta.staleClientAfterMs);
+      if (meta.serverTime) {
+        lastUpdated.textContent = new Date(meta.serverTime).toLocaleTimeString();
+      }
+
+      renderTable(clients);
+    }
+
     function fetchClients() {
       fetch("/api/clients")
-        .then(r => r.json())
-        .then(data => {
-          statusEl.classList.remove("off");
-          statusText.textContent = (data.clients?.length ?? 0) + " client(s)";
-          render(data.clients || []);
+        .then((r) => r.json())
+        .then((data) => {
+          applyPayload(data);
         })
         .catch(() => {
-          statusEl.classList.add("off");
+          statusPill.classList.add("off");
           statusText.textContent = "Failed to load";
         });
     }
 
+    function schedulePoll() {
+      clearInterval(pollTimer);
+      pollTimer = null;
+      const ms = parseInt(intervalSelect.value, 10);
+      if (ms > 0) {
+        pollTimer = setInterval(fetchClients, ms);
+      }
+    }
+
+    filterInput.addEventListener("input", () => {
+      if (lastPayload) renderTable(lastPayload.clients || []);
+    });
+
+    intervalSelect.addEventListener("change", schedulePoll);
+
+    btnRefresh.addEventListener("click", fetchClients);
+
+    btnExport.addEventListener("click", () => {
+      if (!lastPayload) {
+        showToast("Nothing to export yet");
+        return;
+      }
+      const blob = new Blob([JSON.stringify(lastPayload, null, 2)], { type: "application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "webrtc-signaling-clients.json";
+      a.click();
+      URL.revokeObjectURL(a.href);
+      showToast("Download started");
+    });
+
     fetchClients();
-    setInterval(fetchClients, 3000);
+    schedulePoll();
   </script>
 </body>
 </html>

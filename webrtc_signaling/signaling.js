@@ -61,6 +61,7 @@ function createSignaling(options = {}) {
         clientId: cid,
         displayName: info.displayName ?? null,
         inCall: !!info.inCallWith,
+        inCallWith: info.inCallWith ?? null,
         lastActivity: info.lastActivity ?? null,
       };
     });
