@@ -145,7 +145,8 @@ const server = http.createServer((req, res) => {
   res.end("Not found");
 });
 
-const HEARTBEAT_INTERVAL_MS = 30000;
+const WS_PING_INTERVAL_MS = 30000;
+const APP_PING_INTERVAL_MS = 25000;
 
 const wss = new WebSocketServer({ server, path: "/webrtc" });
 
@@ -180,7 +181,7 @@ wss.on("connection", (ws, req) => {
     if (!sessions.has(sessionId)) return;
     sessions.delete(sessionId);
     if (code !== undefined) {
-      logToAddon(
+      onLog(
         { type: "websocket_close", sessionId, code, reason: reason ? String(reason) : "" },
         "info"
       );
@@ -190,21 +191,40 @@ wss.on("connection", (ws, req) => {
   }
 
   ws.on("close", (code, reason) => cleanup(code, reason));
-  ws.on("error", () => cleanup());
+  ws.on("error", (err) => {
+    onLog({ type: "websocket_error", sessionId, error: err.message }, "warn");
+    cleanup();
+  });
 });
 
-const heartbeatInterval = setInterval(() => {
+// WebSocket-level ping/pong (detects dead TCP sockets)
+const wsPingInterval = setInterval(() => {
   wss.clients.forEach((ws) => {
     if (ws.isAlive === false) {
+      const deadSessionId = [...sessions.entries()].find(([, w]) => w === ws)?.[0];
+      onLog({ type: "ws_ping_timeout", sessionId: deadSessionId || "unknown" }, "warn");
       ws.terminate();
       return;
     }
     ws.isAlive = false;
     ws.ping();
   });
-}, HEARTBEAT_INTERVAL_MS);
+}, WS_PING_INTERVAL_MS);
 
-wss.on("close", () => clearInterval(heartbeatInterval));
+// Application-level ping (JSON data frames that proxies see as traffic)
+const appPingInterval = setInterval(() => {
+  const payload = JSON.stringify({ type: "ping", ts: Date.now() });
+  wss.clients.forEach((ws) => {
+    if (ws.readyState === 1) {
+      try { ws.send(payload); } catch (_) {}
+    }
+  });
+}, APP_PING_INTERVAL_MS);
+
+wss.on("close", () => {
+  clearInterval(wsPingInterval);
+  clearInterval(appPingInterval);
+});
 
 const port = options.port;
 let listenLogged = false;

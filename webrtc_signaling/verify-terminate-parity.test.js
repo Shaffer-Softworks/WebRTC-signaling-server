@@ -38,6 +38,30 @@ function testStalePrune() {
   }
 }
 
+function testPongHandled() {
+  const signaling = createSignaling({});
+  function sendToSession() {}
+  signaling.handleMessage("s1", { type: "register", clientId: "c1" }, sendToSession, () => {}, () => {});
+  const result = signaling.handleMessage("s1", { type: "pong" }, sendToSession, () => {}, () => {});
+  assert.deepStrictEqual(result, {}, "pong should be handled silently (no sends, no error)");
+  const state = signaling.getState();
+  assert.strictEqual(state.clients.length, 1, "client should still be registered after pong");
+  assert.strictEqual(state.clients[0].clientId, "c1");
+}
+
+function testPingFromUnregisteredReturnsError() {
+  const signaling = createSignaling({});
+  const sent = [];
+  function sendToSession(sid, obj) { sent.push({ sid, obj }); }
+  signaling.handleMessage("unknown-session", { type: "pong" }, sendToSession, () => {}, () => {});
+  assert.ok(
+    sent.some((s) => s.obj.type === "error" && s.obj.message === "not_registered"),
+    "unregistered session sending pong should get not_registered error"
+  );
+}
+
 testEviction();
 testStalePrune();
-console.log("verify-terminate-parity: ok");
+testPongHandled();
+testPingFromUnregisteredReturnsError();
+console.log("verify-terminate-parity: ok (4 tests)");
