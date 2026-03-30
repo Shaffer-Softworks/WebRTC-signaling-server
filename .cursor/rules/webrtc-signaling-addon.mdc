@@ -24,6 +24,9 @@ Deep context: **`webrtc_signaling/SIGNALING_CONTEXT.md`**.
 
 ## Dual ping keepalive (proxy-safe)
 
+- Supervisor supplies **`/data/options.json`**: `port`, `openobserve_url`, `openobserve_username`, `openobserve_password` (Basic auth when both user and password set). Image base **Node 20 Alpine** (`build.yaml` / `Dockerfile`).
+- User-facing URLs: dashboard **`/`**, WebSocket **`/webrtc`**, JSON **`/api/clients`** (`meta` may include process + host CPU/RAM samples for the dashboard — see **`SIGNALING_CONTEXT.md`** → *Dashboard and GET /api/clients*).
+- **Supervisor packaging** (schema, `build.yaml` image paths, store URL `#main`, icon): see **`webrtc_signaling/SIGNALING_CONTEXT.md`** → *Home Assistant add-on (Supervisor) — saved context*.
 Reverse proxies (HAProxy / OPNsense, nginx) often ignore **WebSocket control-frame** pings (opcode 0x9) for idle timeout purposes.
 Only **data frames** (text/binary, opcode 0x1/0x2) reliably reset their tunnel idle timer.
 

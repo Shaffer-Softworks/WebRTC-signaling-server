@@ -47,6 +47,25 @@ Without the app-level ping, proxies with a `timeout tunnel` of ~180s would kill 
 | Client roster over MQTT | Sometimes a side flow | No MQTT; use **`GET /api/clients`** or a small bridge if you need MQTT |
 | Dashboard | Debug / flow context | **`/`** and **`/api/clients`** |
 
+## Dashboard and `GET /api/clients` (saved context)
+
+- **Dashboard UI:** `webrtc_signaling/dashboard/public/index.html`, served at **`/`** by `server.js`. Static HTML/JS (no build step): client roster table with search, refresh interval, “Refresh now”, per-row copy client ID, JSON export; stat cards driven by polling **`GET /api/clients`**.
+- **HTTP vs WebSocket roster:** `signaling.js` **`buildClientsList()`** includes **`inCallWith`** and **`lastActivity`** on each client object. **`getState()`** / **`/api/clients`** expose that full shape. WebSocket **`clientsList`** broadcasts still map to **`{ clientId, displayName, inCall }`** only (Node-RED parity — do not add fields there without a protocol decision).
+- **`GET /api/clients` response:** `{ "clients": [...], "meta": { ... } }`. Backward compatible: consumers that only read **`clients`** keep working.
+
+**`meta` object (as implemented in `server.js`):**
+
+| Field | Meaning |
+|--------|--------|
+| `serverTime` | ISO timestamp when the response was built |
+| `wsConnections` | Open WebSocket sessions (`sessions.size`) |
+| `staleClientAfterMs` | Same as **`STALE_CLIENT_MS`** in `signaling.js` (90s) |
+| `process` | **This Node process:** `rssBytes`, `heapUsedBytes`, `heapTotalBytes`, `cpuPercent`. **`cpuPercent`** is **null on the first** `/api/clients` response after startup (no prior sample); later values are process CPU time vs wall time since the **previous** request, scaled as ~**one logical CPU** (can exceed 100% if multi-threaded). |
+| `hostMemory` | **`os.totalmem()`** / **`os.freemem()`** — inside Docker, may reflect the **host VM** or **cgroup** view depending on runtime; treat as indicative. |
+| `hostCpu` | **`cpuPercent`** from summed **`os.cpus()`** tick deltas since the **previous** `/api/clients` request (**null** first time), plus **`logicalCores`**. System-wide busy vs idle over the poll interval; Docker may show the environment the container sees. |
+
+**Local Docker quick check:** from `webrtc_signaling/`, `docker build -t webrtc-signaling-local .` then `docker run --rm -p 8765:8765 webrtc-signaling-local` — open **`http://localhost:8765/`**.
+
 ## Testing
 
 ```bash

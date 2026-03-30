@@ -1,8 +1,9 @@
 const http = require("http");
 const fs = require("fs");
+const os = require("os");
 const path = require("path");
 const { WebSocketServer } = require("ws");
-const { createSignaling } = require("./signaling.js");
+const { createSignaling, STALE_CLIENT_MS } = require("./signaling.js");
 
 const DEFAULT_PORT = 8765;
 
@@ -33,6 +34,80 @@ function loadOptions() {
 
 const options = loadOptions();
 const sessions = new Map();
+
+/** CPU % is process time vs wall time since the previous sample (~one logical CPU). */
+let prevCpuUsage = null;
+let prevHrTime = null;
+
+function getProcessResourceSample() {
+  const mem = process.memoryUsage();
+  const cpuNow = process.cpuUsage();
+  const hrNow = process.hrtime.bigint();
+
+  let cpuPercent = null;
+  if (prevCpuUsage != null && prevHrTime != null) {
+    const userDelta = cpuNow.user - prevCpuUsage.user;
+    const systemDelta = cpuNow.system - prevCpuUsage.system;
+    const wallMicros = Number((hrNow - prevHrTime) / 1000n);
+    const cpuMicros = userDelta + systemDelta;
+    if (wallMicros > 0) {
+      cpuPercent = (cpuMicros / wallMicros) * 100;
+      cpuPercent = Math.round(Math.min(999, cpuPercent) * 10) / 10;
+    }
+  }
+  prevCpuUsage = cpuNow;
+  prevHrTime = hrNow;
+
+  return {
+    rssBytes: mem.rss,
+    heapUsedBytes: mem.heapUsed,
+    heapTotalBytes: mem.heapTotal,
+    cpuPercent,
+  };
+}
+
+/** Host CPU % from summed os.cpus() tick deltas since the previous sample (0–100%, all logical cores). */
+let prevHostCpuTicks = null;
+
+function getHostCpuSample() {
+  const cpus = os.cpus();
+  let user = 0;
+  let nice = 0;
+  let sys = 0;
+  let idle = 0;
+  let irq = 0;
+  for (const c of cpus) {
+    const t = c.times;
+    user += t.user;
+    nice += t.nice;
+    sys += t.sys;
+    idle += t.idle;
+    irq += t.irq;
+  }
+
+  let cpuPercent = null;
+  if (prevHostCpuTicks != null) {
+    const du = user - prevHostCpuTicks.user;
+    const dn = nice - prevHostCpuTicks.nice;
+    const ds = sys - prevHostCpuTicks.sys;
+    const di = idle - prevHostCpuTicks.idle;
+    const dq = irq - prevHostCpuTicks.irq;
+    if (du >= 0 && dn >= 0 && ds >= 0 && di >= 0 && dq >= 0) {
+      const dTotal = du + dn + ds + di + dq;
+      if (dTotal > 0) {
+        const dBusy = du + dn + ds + dq;
+        cpuPercent = (dBusy / dTotal) * 100;
+        cpuPercent = Math.round(Math.min(100, Math.max(0, cpuPercent)) * 10) / 10;
+      }
+    }
+  }
+  prevHostCpuTicks = { user, nice, sys, idle, irq };
+
+  return {
+    cpuPercent,
+    logicalCores: cpus.length,
+  };
+}
 
 /** Force-close a WebSocket by session id (parity with Node-RED tryCloseWebSocketSession on eviction/prune). */
 function terminateSession(sessionId) {
@@ -123,7 +198,23 @@ const server = http.createServer((req, res) => {
   if (url === "/api/clients") {
     res.setHeader("Content-Type", "application/json");
     res.setHeader("Access-Control-Allow-Origin", "*");
-    res.end(JSON.stringify(signaling.getState()));
+    const { clients } = signaling.getState();
+    res.end(
+      JSON.stringify({
+        clients,
+        meta: {
+          serverTime: new Date().toISOString(),
+          wsConnections: sessions.size,
+          staleClientAfterMs: STALE_CLIENT_MS,
+          process: getProcessResourceSample(),
+          hostMemory: {
+            totalBytes: os.totalmem(),
+            freeBytes: os.freemem(),
+          },
+          hostCpu: getHostCpuSample(),
+        },
+      })
+    );
     return;
   }
 
