@@ -30,7 +30,14 @@ Target URL: **`ws://<host>:<port>/webrtc`** (default port **8765**).
 
 **This add-on:** `server.js` injects **`terminateSession(sessionId)`** into `createSignaling()`. **`signaling.js`** calls it on same-`clientId` eviction and inside **`pruneStaleClients`**. That matches the Node-RED intent.
 
-Additionally, **`server.js`** runs a **~30s WebSocket ping** sweep and **`terminate()`**s sockets that do not pong (half-open links). That is separate from app-level stale roster + **`terminateSession`**.
+Additionally, **`server.js`** runs two keepalive mechanisms:
+
+1. **WebSocket-level ping** (`ws.ping()`, 30s) — detects dead TCP sockets; `terminate()` if no pong. Logs `ws_ping_timeout` on kill.
+2. **Application-level ping** (`{"type":"ping","ts":…}`, 25s) — sends a **JSON data frame** to every connected client. This keeps reverse proxy idle timers alive; many proxies (HAProxy in OPNsense, nginx) only count **data frames** (opcode 0x1/0x2), not WS control-frame pings (opcode 0x9), toward their tunnel timeout.
+
+Without the app-level ping, proxies with a `timeout tunnel` of ~180s would kill the WS connection every ~3 minutes even though WS-level pings were flowing. The client sees `Signaling WebSocket incoming channel closed (server closed connection?)` when this happens.
+
+`signaling.js` handles `{"type":"pong"}` from clients silently (touches `lastActivity`, no logging). The client's own `heartbeat` (every ~30s) also generates upstream data frames.
 
 ## Operations vs Node-RED
 
@@ -69,7 +76,14 @@ npm test
 **Without a local Node install** (matches the add-on base image):
 
 ```bash
-docker run --rm -v "$(pwd):/app" -w /app node:20-alpine sh -c "npm install --silent && npm test"
+docker run --rm -v "$(pwd):/app:ro" -w /app node:22-alpine node verify-terminate-parity.test.js
+```
+
+**Cursor agent** (macOS, Docker Desktop socket):
+
+```bash
+DOCKER_HOST=unix:///var/run/docker.sock \
+  docker run --rm -v "$(pwd):/app:ro" -w /app node:22-alpine node verify-terminate-parity.test.js
 ```
 
 **Manual check:** Run `node server.js`, open two clients on `/webrtc`, register the same `clientId` twice; the first connection should receive `replaced` and close, with a normal close in the server log.
@@ -80,7 +94,7 @@ docker run --rm -v "$(pwd):/app" -w /app node:20-alpine sh -c "npm install --sil
 |------|------|
 | `signaling.js` | Protocol router, `clientId` ↔ session maps, stale prune, message routing |
 | `server.js` | HTTP static + API, `WebSocketServer` on `/webrtc`, sessions, ping sweep, OpenObserve hook |
-| `verify-terminate-parity.test.js` | Regression: `terminateSession` on eviction and stale prune |
+| `verify-terminate-parity.test.js` | 4 tests: eviction, stale prune, pong handling, unregistered pong error |
 
 ## Home Assistant add-on (Supervisor) — saved context
 

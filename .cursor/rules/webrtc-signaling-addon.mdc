@@ -1,32 +1,85 @@
 ---
-description: WebRTC HA add-on — protocol parity, clients, and where to change code
-globs: webrtc_signaling/**/*
+description: WebRTC signaling add-on — protocol, proxy keepalive, observability, HA add-on packaging
+globs: webrtc_signaling/**/*.js,webrtc_signaling/package.json,webrtc_signaling/Dockerfile,webrtc_signaling/config.yaml
 alwaysApply: false
 ---
 
-# WebRTC Signaling add-on
+# WebRTC signaling add-on (standalone)
 
-Before changing **protocol**, **session lifecycle**, or **client-visible behavior**, read **`webrtc_signaling/SIGNALING_CONTEXT.md`** end-to-end.
+## Repo scope
 
-## Invariants
+All signaling server work lives in **`webrtc_signaling/`** (`package.json` name: `webrtc-signaling-addon`).
+GitHub: **[Shaffer-Softworks/WebRTC-signaling-server](https://github.com/Shaffer-Softworks/WebRTC-signaling-server)**.
 
-- **Node-RED parity:** Same JSON flow as the legacy WebSocket node (`register`, `registered`, `replaced`, offer/answer/candidate, `hangup`, `unavailable`, `getClients`, `clientsList`, `heartbeat`, etc.). Do not drift message shapes without updating clients and docs.
-- **Zombie sockets:** When the server evicts a session (same `clientId` re-register) or **prunes stale** clients, it must **`terminateSession`** / close that WebSocket — not only delete maps — or clients see `not_registered` on a live socket. Regression coverage: `npm test` → `verify-terminate-parity.test.js`.
-- **Layers:** App stale window **`STALE_CLIENT_MS`** (90s) + app **`heartbeat`**; separate from **`server.js`** WebSocket **ping** (~30s) and **`terminate()`** if no pong.
+The **RPI** Android repo is a *consumer*; it keeps a Node-RED export only as legacy reference.
+Deep context: **`webrtc_signaling/SIGNALING_CONTEXT.md`**.
 
-## Android / RPI client
+## Architecture
 
-- ~**30s** application heartbeat; **~20s** Ktor WS ping.
-- On **`replaced`** or **`not_registered`**, client does **full reconnect** (new socket + `register`).
-- Endpoint: **`ws://<host>:<port>/webrtc`** (default **8765**).
+| File | Role |
+|------|------|
+| `server.js` | HTTP + WS server, session map, dual ping (WS-level + app-level), OpenObserve log hook |
+| `signaling.js` | Protocol router (`register`, `offer/answer/candidate`, `hangup`, `heartbeat`, `pong`), stale prune, `terminateSession` on eviction |
+| `verify-terminate-parity.test.js` | 4 tests: eviction, stale prune, pong handling, unregistered pong error |
 
-## Home Assistant
+## Dual ping keepalive (proxy-safe)
 
 - Supervisor supplies **`/data/options.json`**: `port`, `openobserve_url`, `openobserve_username`, `openobserve_password` (Basic auth when both user and password set). Image base **Node 20 Alpine** (`build.yaml` / `Dockerfile`).
 - User-facing URLs: dashboard **`/`**, WebSocket **`/webrtc`**, JSON **`/api/clients`** (`meta` may include process + host CPU/RAM samples for the dashboard — see **`SIGNALING_CONTEXT.md`** → *Dashboard and GET /api/clients*).
 - **Supervisor packaging** (schema, `build.yaml` image paths, store URL `#main`, icon): see **`webrtc_signaling/SIGNALING_CONTEXT.md`** → *Home Assistant add-on (Supervisor) — saved context*.
+Reverse proxies (HAProxy / OPNsense, nginx) often ignore **WebSocket control-frame** pings (opcode 0x9) for idle timeout purposes.
+Only **data frames** (text/binary, opcode 0x1/0x2) reliably reset their tunnel idle timer.
 
-## Repo layout
+| Mechanism | Interval | Purpose |
+|-----------|----------|---------|
+| **WS-level ping** (`ws.ping()`) | 30s (`WS_PING_INTERVAL_MS`) | Detects dead TCP sockets; `ws.terminate()` if no pong |
+| **App-level ping** (`{"type":"ping","ts":…}`) | 25s (`APP_PING_INTERVAL_MS`) | JSON data frame that keeps proxy tunnel alive |
+| **Client heartbeat** (`{"type":"heartbeat"}`) | ~30s (sent by Android app) | Upstream data frame; resets `lastActivity` for stale prune |
 
-- **`signaling.js`** — router, maps, prune, routing. **`server.js`** — HTTP, WS server, sessions, ping sweep, OpenObserve hook.
-- Install / store docs: root **`README.md`**; add-on dev quickstart: **`webrtc_signaling/README.md`**.
+If `ws_ping_timeout` or `server closed connection` appears in logs, check the **proxy** `timeout tunnel` / `proxy_read_timeout`. The app-level ping at 25s should survive any proxy with timeout >= 30s.
+
+## Stale client prune
+
+`STALE_CLIENT_MS = 90000` (90s). Clients with no `lastActivity` update are pruned on the next `buildClientsList()` call. Pruned sessions get `terminateSession(sid)` (force-closes the WS). The Android app sends heartbeat every ~30s, well inside the 90s window.
+
+## `not_registered` flow
+
+If a message arrives for a `sessionId` not in `sessInfo`, the server replies `{"type":"error","message":"not_registered"}`. Common causes:
+- Session was **evicted** (same `clientId` re-registered from a new socket)
+- Session was **pruned** as stale
+- Session was **terminated** by WS ping timeout
+
+The Android app responds with `forceSignalingReconnect()` → new socket + `register`.
+
+## OpenObserve logging
+
+`onLog(payload, level)` → stdout + optional HTTP POST to OpenObserve ingest URL (configured via `/data/options.json` or env vars).
+Events logged: `registered`, `disconnect`, `websocket_close`, `websocket_error`, `ws_ping_timeout`, `clientsList`, `heartbeat` (debug), `not_registered` (warn).
+
+Stream: typically `node_red` (because the ingest URL path includes the stream name); `service: "webrtc-signaling"`, `tag: "webrtc"`.
+
+## HA add-on packaging
+
+| Topic | Key detail |
+|-------|-----------|
+| **Layout** | Root `repository.yaml`; add-on folder `webrtc_signaling/` matches `slug: webrtc_signaling` in `config.yaml` |
+| **`build.yaml`** | `build_from` must be full image refs (e.g. `docker.io/library/node:20-alpine`); short names rejected by Supervisor |
+| **Dockerfile** | `ARG BUILD_FROM` / `FROM $BUILD_FROM`; `npm install --omit=dev` (no lockfile → `npm ci` fails) |
+| **Options** | `/data/options.json`: `port`, `openobserve_url`, `openobserve_username`, `openobserve_password` |
+| **Port** | Schema: `int(1,65535)?`; default 8765 |
+
+## Testing
+
+```bash
+npm test                          # if node is available locally
+# or via Docker (matches add-on base image):
+DOCKER_HOST=unix:///var/run/docker.sock \
+  docker run --rm -v "$(pwd):/app:ro" -w /app node:22-alpine node verify-terminate-parity.test.js
+```
+
+## Related (outside this repo)
+
+- **RPI Android app**: `IntercomRepository`, `WebRtcIntercom`, signaling URL preference
+- **Node-RED legacy**: `node-red/nodered-signaling-server.js` in RPI repo
+- **OPNsense proxy**: `ha.shafferco.com:8765` → this add-on; check `timeout tunnel` if connections drop
+- **HA log patterns**: `Signaling WebSocket incoming channel closed (server closed connection?)` = proxy or server killed the WS
