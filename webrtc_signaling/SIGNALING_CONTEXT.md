@@ -109,5 +109,6 @@ Repo URL: **[Shaffer-Softworks/WebRTC-signaling-server](https://github.com/Shaff
 | **Options** | **`/data/options.json`**: `port`, `openobserve_url`, `openobserve_username`, `openobserve_password`. Env: `PORT`, `OPENOBSERVE_*`. Ingest sends **Basic auth** when username and password are both set. |
 | **`icon.png`** | Must be a valid PNG (meaningful size); tiny placeholder PNGs break in the store UI. |
 | **Store UI** | Custom add-ons appear **at the bottom** of the add-on store. Parse failures often log as **WARNING** in Supervisor logs, not ERROR. |
+| **Open dashboard** | `config.yaml` sets **`webui: http://[HOST]:[PORT:8765]/`**. Supervisor shows **Open Web UI** on the add-on Info tab (uses the mapped host port for `8765/tcp`). If you change the add-on **`port`** option, ensure host/container port mapping still matches the listening port. |
 
 Editor/agent invariants: **`.cursor/rules/webrtc-signaling-addon.mdc`**. User-facing install notes: root **`README.md`**; add-on quickstart: **`webrtc_signaling/README.md`**.
