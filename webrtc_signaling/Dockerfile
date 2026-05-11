@@ -1,12 +1,22 @@
-ARG BUILD_FROM=node:20-alpine
-FROM $BUILD_FROM
+ARG BUILD_FROM
+FROM ${BUILD_FROM}
 
-WORKDIR /app
+ENV LANG=C.UTF-8 \
+    NODE_ENV=production
 
-COPY package.json ./
-RUN npm install --omit=dev
+RUN apk add --no-cache nodejs npm
 
-COPY . .
+WORKDIR /opt/app
+
+COPY package.json package-lock.json* ./
+RUN if [ -f package-lock.json ]; then npm ci --omit=dev; else npm install --omit=dev; fi
+
+COPY src/ ./src/
+COPY ui/ ./ui/
+
+COPY run.sh /run.sh
+RUN chmod a+x /run.sh
+
 EXPOSE 8765
 
-CMD ["node", "server.js"]
+CMD ["/run.sh"]

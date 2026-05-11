@@ -1,3 +1,5 @@
-#!/usr/bin/env sh
+#!/usr/bin/with-contenv sh
 set -e
-exec node server.js
+
+cd /opt/app
+exec node src/index.js

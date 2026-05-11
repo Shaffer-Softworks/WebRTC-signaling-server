@@ -1,0 +1,15 @@
+configuration:
+  port:
+    name: Listen port
+    description: TCP port for the HTTP dashboard, JSON API, and WebSocket signaling path /webrtc.
+  openobserve_url:
+    name: OpenObserve ingest URL
+    description: Optional. Full URL for log ingest (HTTP POST). Leave blank to disable remote logging.
+  openobserve_username:
+    name: OpenObserve username
+    description: Optional. Used with password for Basic auth to OpenObserve.
+  openobserve_password:
+    name: OpenObserve password
+    description: Optional. Used with username for Basic auth to OpenObserve.
+network:
+  "8765/tcp": WebSocket signaling, dashboard at /, and GET /api/clients for the client roster JSON.

@@ -17,7 +17,7 @@ The app uses the same message types as this server, including `replaced` and app
 | Behavior | Detail |
 |----------|--------|
 | Ktor WebSocket ping | ~20s toward the server (layer responds with pong) |
-| App heartbeat | ~every 30s — keeps the session inside the server’s **90s** stale window (`STALE_CLIENT_MS` in `signaling.js`) |
+| App heartbeat | ~every 30s — keeps the session inside the server’s **90s** stale window (`STALE_CLIENT_MS` in `src/signaling.js`) |
 | `replaced` / `not_registered` | App does a **full signaling reconnect** (new socket + `register`) instead of retrying on a half-valid session |
 
 Target URL: **`ws://<host>:<port>/webrtc`** (default port **8765**).
@@ -28,16 +28,16 @@ Target URL: **`ws://<host>:<port>/webrtc`** (default port **8765**).
 
 **Node-RED approach:** `tryCloseWebSocketSession()` when evicting the old session and when pruning stale entries.
 
-**This add-on:** `server.js` injects **`terminateSession(sessionId)`** into `createSignaling()`. **`signaling.js`** calls it on same-`clientId` eviction and inside **`pruneStaleClients`**. That matches the Node-RED intent.
+**This add-on:** `src/index.js` injects **`terminateSession(sessionId)`** into `createSignaling()`. **`src/signaling.js`** calls it on same-`clientId` eviction and inside **`pruneStaleClients`**. That matches the Node-RED intent.
 
-Additionally, **`server.js`** runs two keepalive mechanisms:
+Additionally, **`src/index.js`** runs two keepalive mechanisms:
 
 1. **WebSocket-level ping** (`ws.ping()`, 30s) — detects dead TCP sockets; `terminate()` if no pong. Logs `ws_ping_timeout` on kill.
 2. **Application-level ping** (`{"type":"ping","ts":…}`, 25s) — sends a **JSON data frame** to every connected client. This keeps reverse proxy idle timers alive; many proxies (HAProxy in OPNsense, nginx) only count **data frames** (opcode 0x1/0x2), not WS control-frame pings (opcode 0x9), toward their tunnel timeout.
 
 Without the app-level ping, proxies with a `timeout tunnel` of ~180s would kill the WS connection every ~3 minutes even though WS-level pings were flowing. The client sees `Signaling WebSocket incoming channel closed (server closed connection?)` when this happens.
 
-`signaling.js` handles `{"type":"pong"}` from clients silently (touches `lastActivity`, no logging). The client's own `heartbeat` (every ~30s) also generates upstream data frames.
+`src/signaling.js` handles `{"type":"pong"}` from clients silently (touches `lastActivity`, no logging). The client's own `heartbeat` (every ~30s) also generates upstream data frames.
 
 ## Operations vs Node-RED
 
@@ -49,17 +49,17 @@ Without the app-level ping, proxies with a `timeout tunnel` of ~180s would kill 
 
 ## Dashboard and `GET /api/clients` (saved context)
 
-- **Dashboard UI:** `webrtc_signaling/dashboard/public/index.html`, served at **`/`** by `server.js`. Static HTML/JS (no build step): client roster table with search, refresh interval, “Refresh now”, per-row copy client ID, JSON export; stat cards driven by polling **`GET /api/clients`**.
-- **HTTP vs WebSocket roster:** `signaling.js` **`buildClientsList()`** includes **`inCallWith`** and **`lastActivity`** on each client object. **`getState()`** / **`/api/clients`** expose that full shape. WebSocket **`clientsList`** broadcasts still map to **`{ clientId, displayName, inCall }`** only (Node-RED parity — do not add fields there without a protocol decision).
+- **Dashboard UI:** `webrtc_signaling/ui/index.html`, served at **`/`** by `src/index.js`. Static HTML/JS (no build step): client roster table with search, refresh interval, “Refresh now”, per-row copy client ID, JSON export; stat cards driven by polling **`GET /api/clients`**.
+- **HTTP vs WebSocket roster:** `src/signaling.js` **`buildClientsList()`** includes **`inCallWith`** and **`lastActivity`** on each client object. **`getState()`** / **`/api/clients`** expose that full shape. WebSocket **`clientsList`** broadcasts still map to **`{ clientId, displayName, inCall }`** only (Node-RED parity — do not add fields there without a protocol decision).
 - **`GET /api/clients` response:** `{ "clients": [...], "meta": { ... } }`. Backward compatible: consumers that only read **`clients`** keep working.
 
-**`meta` object (as implemented in `server.js`):**
+**`meta` object (as implemented in `src/index.js`):**
 
 | Field | Meaning |
 |--------|--------|
 | `serverTime` | ISO timestamp when the response was built |
 | `wsConnections` | Open WebSocket sessions (`sessions.size`) |
-| `staleClientAfterMs` | Same as **`STALE_CLIENT_MS`** in `signaling.js` (90s) |
+| `staleClientAfterMs` | Same as **`STALE_CLIENT_MS`** in `src/signaling.js` (90s) |
 | `process` | **This Node process:** `rssBytes`, `heapUsedBytes`, `heapTotalBytes`, `cpuPercent`. **`cpuPercent`** is **null on the first** `/api/clients` response after startup (no prior sample); later values are process CPU time vs wall time since the **previous** request, scaled as ~**one logical CPU** (can exceed 100% if multi-threaded). |
 | `hostMemory` | **`os.totalmem()`** / **`os.freemem()`** — inside Docker, may reflect the **host VM** or **cgroup** view depending on runtime; treat as indicative. |
 | `hostCpu` | **`cpuPercent`** from summed **`os.cpus()`** tick deltas since the **previous** `/api/clients` request (**null** first time), plus **`logicalCores`**. System-wide busy vs idle over the poll interval; Docker may show the environment the container sees. |
@@ -73,7 +73,7 @@ npm install
 npm test
 ```
 
-**Without a local Node install** (matches the add-on base image):
+**Without a local Node install** (the test file only needs Node’s built-in `assert` and `src/signaling.js`; it does not load `ws`):
 
 ```bash
 docker run --rm -v "$(pwd):/app:ro" -w /app node:22-alpine node verify-terminate-parity.test.js
@@ -86,14 +86,14 @@ DOCKER_HOST=unix:///var/run/docker.sock \
   docker run --rm -v "$(pwd):/app:ro" -w /app node:22-alpine node verify-terminate-parity.test.js
 ```
 
-**Manual check:** Run `node server.js`, open two clients on `/webrtc`, register the same `clientId` twice; the first connection should receive `replaced` and close, with a normal close in the server log.
+**Manual check:** Run `node src/index.js`, open two clients on `/webrtc`, register the same `clientId` twice; the first connection should receive `replaced` and close, with a normal close in the server log.
 
 ## Source files
 
 | File | Role |
 |------|------|
-| `signaling.js` | Protocol router, `clientId` ↔ session maps, stale prune, message routing |
-| `server.js` | HTTP static + API, `WebSocketServer` on `/webrtc`, sessions, ping sweep, OpenObserve hook |
+| `src/signaling.js` | Protocol router, `clientId` ↔ session maps, stale prune, message routing |
+| `src/index.js` | HTTP static + API, `WebSocketServer` on `/webrtc`, sessions, ping sweep, OpenObserve hook |
 | `verify-terminate-parity.test.js` | 4 tests: eviction, stale prune, pong handling, unregistered pong error |
 
 ## Home Assistant add-on (Supervisor) — saved context
@@ -104,8 +104,8 @@ Repo URL: **[Shaffer-Softworks/WebRTC-signaling-server](https://github.com/Shaff
 |--------|------------------------|
 | **Layout** | Root **`repository.yaml`**; add-on folder **`webrtc_signaling/`** must match **`slug: webrtc_signaling`** in `config.yaml`. |
 | **Schema** | Option types use Supervisor regex. Port: **`int(1,65535)?`** (not `int(8765)?`). Optional strings: **`str?`**; optional password: **`password?`**. |
-| **`build.yaml`** | **`build_from`** must be full image refs (e.g. **`docker.io/library/node:20-alpine`**). Short names like `node:20-alpine` are rejected; Supervisor then falls back to HA base (no npm). |
-| **Dockerfile** | **`ARG BUILD_FROM`** / **`FROM $BUILD_FROM`**; default **`node:20-alpine`** for local builds. Use **`npm install --omit=dev`** (no **`package-lock.json`** → **`npm ci`** fails). |
+| **`build.yaml`** | **`build_from`** uses full **`ghcr.io/home-assistant/<arch>-base:3.21`** images (same pattern as **apk-update-service**). Short names are rejected by Supervisor. |
+| **Dockerfile** | **`ARG BUILD_FROM`** / **`FROM ${BUILD_FROM}`**; **`RUN apk add --no-cache nodejs npm`**; **`WORKDIR /opt/app`**; copy **`package.json`** / lockfile, **`npm ci --omit=dev`** (or **`npm install`** if no lockfile); copy **`src/`** and **`ui/`**; **`run.sh`** runs **`node src/index.js`** via **`with-contenv`**. |
 | **Options** | **`/data/options.json`**: `port`, `openobserve_url`, `openobserve_username`, `openobserve_password`. Env: `PORT`, `OPENOBSERVE_*`. Ingest sends **Basic auth** when username and password are both set. |
 | **`icon.png`** | Must be a valid PNG (meaningful size); tiny placeholder PNGs break in the store UI. |
 | **Store UI** | Custom add-ons appear **at the bottom** of the add-on store. Parse failures often log as **WARNING** in Supervisor logs, not ERROR. |

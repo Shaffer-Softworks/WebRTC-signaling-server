@@ -2,11 +2,11 @@
 
 /**
  * Asserts terminateSession is invoked on same-client re-register and on stale prune
- * (parity with Node-RED tryCloseWebSocketSession). Run: node verify-terminate-parity.test.js
+ * (parity with Node-RED tryCloseWebSocketSession). Run: npm test
  */
 
 const assert = require("assert");
-const { createSignaling, STALE_CLIENT_MS } = require("./signaling.js");
+const { createSignaling, STALE_CLIENT_MS } = require("./src/signaling.js");
 
 function testEviction() {
   const terminated = [];

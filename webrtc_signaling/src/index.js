@@ -190,7 +190,7 @@ function applyResult(result) {
   }
 }
 
-const PUBLIC_DIR = path.join(__dirname, "dashboard", "public");
+const PUBLIC_DIR = path.join(__dirname, "..", "ui");
 
 const server = http.createServer((req, res) => {
   const url = req.url?.split("?")[0] || "/";

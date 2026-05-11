@@ -18,13 +18,13 @@ Deep context: **`webrtc_signaling/SIGNALING_CONTEXT.md`**.
 
 | File | Role |
 |------|------|
-| `server.js` | HTTP + WS server, session map, dual ping (WS-level + app-level), OpenObserve log hook |
-| `signaling.js` | Protocol router (`register`, `offer/answer/candidate`, `hangup`, `heartbeat`, `pong`), stale prune, `terminateSession` on eviction |
+| `src/index.js` | HTTP + WS server, session map, dual ping (WS-level + app-level), OpenObserve log hook |
+| `src/signaling.js` | Protocol router (`register`, `offer/answer/candidate`, `hangup`, `heartbeat`, `pong`), stale prune, `terminateSession` on eviction |
 | `verify-terminate-parity.test.js` | 4 tests: eviction, stale prune, pong handling, unregistered pong error |
 
 ## Dual ping keepalive (proxy-safe)
 
-- Supervisor supplies **`/data/options.json`**: `port`, `openobserve_url`, `openobserve_username`, `openobserve_password` (Basic auth when both user and password set). Image base **Node 20 Alpine** (`build.yaml` / `Dockerfile`).
+- Supervisor supplies **`/data/options.json`**: `port`, `openobserve_url`, `openobserve_username`, `openobserve_password` (Basic auth when both user and password set). Image: **Home Assistant Alpine base** + **`apk add nodejs npm`** (`build.yaml` / `Dockerfile`, same layout pattern as **apk-update-service**).
 - User-facing URLs: dashboard **`/`**, WebSocket **`/webrtc`**, JSON **`/api/clients`** (`meta` may include process + host CPU/RAM samples for the dashboard — see **`SIGNALING_CONTEXT.md`** → *Dashboard and GET /api/clients*).
 - **Supervisor packaging** (schema, `build.yaml` image paths, store URL `#main`, icon): see **`webrtc_signaling/SIGNALING_CONTEXT.md`** → *Home Assistant add-on (Supervisor) — saved context*.
 Reverse proxies (HAProxy / OPNsense, nginx) often ignore **WebSocket control-frame** pings (opcode 0x9) for idle timeout purposes.
@@ -62,11 +62,12 @@ Stream: typically `node_red` (because the ingest URL path includes the stream na
 
 | Topic | Key detail |
 |-------|-----------|
-| **Layout** | Root `repository.yaml`; add-on folder `webrtc_signaling/` matches `slug: webrtc_signaling` in `config.yaml` |
-| **`build.yaml`** | `build_from` must be full image refs (e.g. `docker.io/library/node:20-alpine`); short names rejected by Supervisor |
-| **Dockerfile** | `ARG BUILD_FROM` / `FROM $BUILD_FROM`; `npm install --omit=dev` (no lockfile → `npm ci` fails) |
+| **Layout** | Root `repository.yaml`; add-on folder `webrtc_signaling/` matches `slug: webrtc_signaling` in `config.yaml`; **`src/`**, **`ui/`**, **`translations/en.yaml`** like **apk-update-service** |
+| **`build.yaml`** | Full refs: **`ghcr.io/home-assistant/<arch>-base:3.21`** |
+| **Dockerfile** | HA base + **`apk add nodejs npm`**; **`WORKDIR /opt/app`**; **`npm ci --omit=dev`** when lockfile present; copy **`src/`** + **`ui/`**; **`run.sh`** → **`node src/index.js`** |
 | **Options** | `/data/options.json`: `port`, `openobserve_url`, `openobserve_username`, `openobserve_password` |
 | **Port** | Schema: `int(1,65535)?`; default 8765 |
+| **Open dashboard** | `config.yaml`: **`webui: http://[HOST]:[PORT:8765]/`** → Supervisor **Open Web UI** on add-on Info; align `ports` / **`port`** option if user changes listen port |
 
 ## Testing
 
