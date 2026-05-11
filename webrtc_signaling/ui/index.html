@@ -510,9 +510,23 @@
     const epWs = document.getElementById("epWs");
     const epApi = document.getElementById("epApi");
 
-    const origin = window.location.origin.replace(/^http/, "ws");
-    epWs.textContent = origin + "/webrtc";
-    epApi.textContent = window.location.origin + "/api/clients";
+    /**
+     * Home Assistant ingress: Core proxies to `/api/hassio_ingress/<token>/…`.
+     * Older setups may use `/hassio/ingress/<slug>/…`. Match token path first.
+     */
+    function addonHttpBase() {
+      const path = window.location.pathname || "";
+      let m = path.match(/^(\/api\/hassio_ingress\/[^/]+)\/?/);
+      if (m) return window.location.origin + m[1];
+      m = path.match(/^(\/hassio\/ingress\/[^/]+)\/?/);
+      if (m) return window.location.origin + m[1];
+      return window.location.origin;
+    }
+
+    const httpBase = addonHttpBase();
+    const wsBase = httpBase.replace(/^http/, "ws");
+    epWs.textContent = wsBase + "/webrtc";
+    epApi.textContent = httpBase + "/api/clients";
 
     let lastPayload = null;
     let pollTimer = null;
@@ -674,7 +688,7 @@
     }
 
     function fetchClients() {
-      fetch("/api/clients")
+      fetch(httpBase + "/api/clients")
         .then((r) => r.json())
         .then((data) => {
           applyPayload(data);

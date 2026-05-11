@@ -1,8 +1,8 @@
 # WebRTC Signaling Server
 
-Home Assistant add-on: a standalone WebSocket signaling server for LAN intercom, with a dashboard. It implements the same **Direct-Calling Signaling Router** flow as the legacy Node-RED WebSocket node (`register`, `registered`, `replaced`, `offer`, `answer`, `candidate`, `hangup`, `unavailable`, `getClients`, `clientsList`, `heartbeat`, etc.).
+Home Assistant add-on: a standalone WebSocket signaling server for LAN intercom, with a dashboard. It implements the **Direct-Calling Signaling Router** JSON protocol (`register`, `registered`, `replaced`, `offer`, `answer`, `candidate`, `hangup`, `unavailable`, `getClients`, `clientsList`, `heartbeat`, and related types).
 
-**Deep dive** (Android client behavior, Node-RED parity, operations, tests): [SIGNALING_CONTEXT.md](./SIGNALING_CONTEXT.md)  
+**Deep dive** (Android client behavior, protocol, operations, tests): [SIGNALING_CONTEXT.md](./SIGNALING_CONTEXT.md)  
 **Cursor:** [`.cursor/rules/webrtc-signaling-addon.mdc`](../.cursor/rules/webrtc-signaling-addon.mdc) (applies when editing files under `webrtc_signaling/`)
 
 **Install via Home Assistant:** [Repository README](../README.md) (custom repo URL and troubleshooting).
@@ -14,7 +14,7 @@ Home Assistant add-on: a standalone WebSocket signaling server for LAN intercom,
 | What | Location |
 |------|----------|
 | Dashboard | `http://<host>:<port>/` |
-| Open dashboard (Supervisor) | Add-on **Info** tab → **Open Web UI** (`webui` in `config.yaml`; see [SIGNALING_CONTEXT.md](./SIGNALING_CONTEXT.md)) |
+| Open dashboard (Supervisor) | **Ingress** (like apk-update-service). For the UI **inside** Home Assistant (sidebar panel), enable **Show in sidebar** on the add-on **Info** tab. See [SIGNALING_CONTEXT.md](./SIGNALING_CONTEXT.md). |
 | WebSocket | `ws://<host>:<port>/webrtc` |
 | Client list (JSON) | `http://<host>:<port>/api/clients` (response includes `meta`: process + host metrics for the dashboard — see [SIGNALING_CONTEXT.md](./SIGNALING_CONTEXT.md)) |
 

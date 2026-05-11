@@ -6,7 +6,7 @@
 
 Signaling server work (protocol, tests, ops behavior) lives in this repo under **`webrtc_signaling/`** (`package.json` name: `webrtc-signaling-addon`). The canonical GitHub tree is **[WebRTC-signaling-server](https://github.com/Shaffer-Softworks/WebRTC-signaling-server)**.
 
-Do **not** treat the **RPI** Android repo as the source of truth for this server; it keeps a **Node-RED export** (e.g. `node-red/nodered-signaling-server.js`) only as a **legacy reference** for the same JSON protocol.
+Do **not** treat the **RPI** Android repo as the source of truth for this server; it is a **protocol consumer**. Behavior and compatibility are defined here and in the source under **`webrtc_signaling/`**.
 
 ## Android client (RPI intercom)
 
@@ -22,13 +22,13 @@ The app uses the same message types as this server, including `replaced` and app
 
 Target URL: **`ws://<host>:<port>/webrtc`** (default port **8765**).
 
-## Parity with Node-RED (zombies / `not_registered`)
+## Session cleanup (zombies / `not_registered`)
 
 **Problem:** The server dropped a session from its maps (re-register eviction or stale prune) but the **old WebSocket stayed open**. The client kept sending; the server replied **`not_registered`**.
 
-**Node-RED approach:** `tryCloseWebSocketSession()` when evicting the old session and when pruning stale entries.
+**Intended fix:** whenever a session is evicted or pruned, the corresponding socket must be **force-closed** so the client reconnects instead of talking to a dead session id.
 
-**This add-on:** `src/index.js` injects **`terminateSession(sessionId)`** into `createSignaling()`. **`src/signaling.js`** calls it on same-`clientId` eviction and inside **`pruneStaleClients`**. That matches the Node-RED intent.
+**This add-on:** `src/index.js` injects **`terminateSession(sessionId)`** into `createSignaling()`. **`src/signaling.js`** calls it on same-`clientId` eviction and inside **`pruneStaleClients`**.
 
 Additionally, **`src/index.js`** runs two keepalive mechanisms:
 
@@ -39,18 +39,18 @@ Without the app-level ping, proxies with a `timeout tunnel` of ~180s would kill 
 
 `src/signaling.js` handles `{"type":"pong"}` from clients silently (touches `lastActivity`, no logging). The client's own `heartbeat` (every ~30s) also generates upstream data frames.
 
-## Operations vs Node-RED
+## Operations notes
 
-| Topic | Node-RED | This add-on |
-|--------|------------|-------------|
-| OpenObserve | Often `node_red` stream | Ingest URL + optional **Basic auth** (`openobserve_username` / `openobserve_password`); payload uses `tag: "webrtc"` / `service: "webrtc-signaling"` — adjust stream routing in OpenObserve if needed |
-| Client roster over MQTT | Sometimes a side flow | No MQTT; use **`GET /api/clients`** or a small bridge if you need MQTT |
-| Dashboard | Debug / flow context | **`/`** and **`/api/clients`** |
+| Topic | This add-on |
+|--------|-------------|
+| OpenObserve | Ingest URL + optional **Basic auth** (`openobserve_username` / `openobserve_password`); payload uses `tag: "webrtc"` / `service: "webrtc-signaling"`. Route streams in OpenObserve to match your ingest URL path if needed. |
+| Client roster over MQTT | No MQTT; use **`GET /api/clients`** or a small bridge if you need MQTT. |
+| Dashboard | **`/`** and **`/api/clients`**. |
 
 ## Dashboard and `GET /api/clients` (saved context)
 
 - **Dashboard UI:** `webrtc_signaling/ui/index.html`, served at **`/`** by `src/index.js`. Static HTML/JS (no build step): client roster table with search, refresh interval, “Refresh now”, per-row copy client ID, JSON export; stat cards driven by polling **`GET /api/clients`**.
-- **HTTP vs WebSocket roster:** `src/signaling.js` **`buildClientsList()`** includes **`inCallWith`** and **`lastActivity`** on each client object. **`getState()`** / **`/api/clients`** expose that full shape. WebSocket **`clientsList`** broadcasts still map to **`{ clientId, displayName, inCall }`** only (Node-RED parity — do not add fields there without a protocol decision).
+- **HTTP vs WebSocket roster:** `src/signaling.js` **`buildClientsList()`** includes **`inCallWith`** and **`lastActivity`** on each client object. **`getState()`** / **`/api/clients`** expose that full shape. WebSocket **`clientsList`** broadcasts still map to **`{ clientId, displayName, inCall }`** only (stable wire shape for clients — do not add fields there without a protocol decision).
 - **`GET /api/clients` response:** `{ "clients": [...], "meta": { ... } }`. Backward compatible: consumers that only read **`clients`** keep working.
 
 **`meta` object (as implemented in `src/index.js`):**
@@ -109,6 +109,6 @@ Repo URL: **[Shaffer-Softworks/WebRTC-signaling-server](https://github.com/Shaff
 | **Options** | **`/data/options.json`**: `port`, `openobserve_url`, `openobserve_username`, `openobserve_password`. Env: `PORT`, `OPENOBSERVE_*`. Ingest sends **Basic auth** when username and password are both set. |
 | **`icon.png`** | Must be a valid PNG (meaningful size); tiny placeholder PNGs break in the store UI. |
 | **Store UI** | Custom add-ons appear **at the bottom** of the add-on store. Parse failures often log as **WARNING** in Supervisor logs, not ERROR. |
-| **Open dashboard** | `config.yaml` sets **`webui: http://[HOST]:[PORT:8765]/`**. Supervisor shows **Open Web UI** on the add-on Info tab (uses the mapped host port for `8765/tcp`). If you change the add-on **`port`** option, ensure host/container port mapping still matches the listening port. |
+| **Open dashboard** | Same ingress pattern as **apk-update-service**: **`ingress: true`**, **`ingress_port: 8765`**, **`panel_title`** / **`panel_icon`**, **`startup: services`**, **`boot: auto`**, **`hassio_api: false`**, **`homeassistant_api: false`**. Core proxies the UI at **`/api/hassio_ingress/<token>/…`** (older: **`/hassio/ingress/<slug>/…`**); the dashboard script prefixes **`/api/clients`** and **`/webrtc`** with that base. **Inside the HA shell:** turn on **Show in sidebar** on the add-on **Info** tab (Supervisor persists **`ingress_panel`**); that registers the built-in **app** panel so the UI opens in the main layout like **APK Updates**, instead of only opening ingress in a separate full-tab flow. **`ports`** / **`port`** must stay aligned with **`ingress_port`**. |
 
 Editor/agent invariants: **`.cursor/rules/webrtc-signaling-addon.mdc`**. User-facing install notes: root **`README.md`**; add-on quickstart: **`webrtc_signaling/README.md`**.
