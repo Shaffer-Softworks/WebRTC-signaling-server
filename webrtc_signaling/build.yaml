@@ -1,7 +1,7 @@
-# Full Docker image path required by Supervisor (node is multi-arch)
+# HA Supervisor base images (include s6 / with-contenv); Node from Alpine packages
 build_from:
-  aarch64: docker.io/library/node:20-alpine
-  amd64: docker.io/library/node:20-alpine
-  armhf: docker.io/library/node:20-alpine
-  armv7: docker.io/library/node:20-alpine
-  i386: docker.io/library/node:20-alpine
+  aarch64: ghcr.io/home-assistant/aarch64-base:3.21
+  amd64: ghcr.io/home-assistant/amd64-base:3.21
+  armhf: ghcr.io/home-assistant/armhf-base:3.21
+  armv7: ghcr.io/home-assistant/armv7-base:3.21
+  i386: ghcr.io/home-assistant/i386-base:3.21

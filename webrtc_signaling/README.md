@@ -14,6 +14,7 @@ Home Assistant add-on: a standalone WebSocket signaling server for LAN intercom,
 | What | Location |
 |------|----------|
 | Dashboard | `http://<host>:<port>/` |
+| Open dashboard (Supervisor) | Add-on **Info** tab → **Open Web UI** (`webui` in `config.yaml`; see [SIGNALING_CONTEXT.md](./SIGNALING_CONTEXT.md)) |
 | WebSocket | `ws://<host>:<port>/webrtc` |
 | Client list (JSON) | `http://<host>:<port>/api/clients` (response includes `meta`: process + host metrics for the dashboard — see [SIGNALING_CONTEXT.md](./SIGNALING_CONTEXT.md)) |
 
@@ -34,7 +35,7 @@ The Supervisor writes **`/data/options.json`** from the add-on UI. For local dev
 
 ```bash
 npm install
-node server.js
+node src/index.js
 ```
 
 ## Docker
