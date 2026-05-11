@@ -1,6 +1,6 @@
 # https://developers.home-assistant.io/docs/add-ons/configuration
 name: WebRTC Signaling Server
-version: "1.3.2"
+version: "1.3.3"
 slug: webrtc_signaling
 description: WebRTC signaling server for LAN intercom with dashboard. JSON protocol (register, offer/answer/candidate, hangup, clientsList, and related message types).
 url: "https://github.com/Shaffer-Softworks/WebRTC-signaling-server/tree/main/webrtc_signaling"
