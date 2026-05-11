@@ -1,8 +1,8 @@
 "use strict";
 
 /**
- * Asserts terminateSession is invoked on same-client re-register and on stale prune
- * (parity with Node-RED tryCloseWebSocketSession). Run: npm test
+ * Asserts terminateSession is invoked on same-client re-register and on stale prune.
+ * Run: npm test
  */
 
 const assert = require("assert");

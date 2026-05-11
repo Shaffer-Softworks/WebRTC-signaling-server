@@ -109,7 +109,7 @@ function getHostCpuSample() {
   };
 }
 
-/** Force-close a WebSocket by session id (parity with Node-RED tryCloseWebSocketSession on eviction/prune). */
+/** Force-close a WebSocket by session id (eviction and stale prune). */
 function terminateSession(sessionId) {
   const ws = sessions.get(sessionId);
   if (!ws) return;
@@ -226,7 +226,7 @@ const server = http.createServer((req, res) => {
         res.end("Not found");
         return;
       }
-      res.setHeader("Content-Type", "text/html");
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
       res.end(data);
     });
     return;

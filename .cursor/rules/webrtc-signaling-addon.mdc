@@ -11,7 +11,7 @@ alwaysApply: false
 All signaling server work lives in **`webrtc_signaling/`** (`package.json` name: `webrtc-signaling-addon`).
 GitHub: **[Shaffer-Softworks/WebRTC-signaling-server](https://github.com/Shaffer-Softworks/WebRTC-signaling-server)**.
 
-The **RPI** Android repo is a *consumer*; it keeps a Node-RED export only as legacy reference.
+The **RPI** Android repo is a *consumer* of this signaling protocol (not the source of truth for server behavior).
 Deep context: **`webrtc_signaling/SIGNALING_CONTEXT.md`**.
 
 ## Architecture
@@ -56,7 +56,7 @@ The Android app responds with `forceSignalingReconnect()` → new socket + `regi
 `onLog(payload, level)` → stdout + optional HTTP POST to OpenObserve ingest URL (configured via `/data/options.json` or env vars).
 Events logged: `registered`, `disconnect`, `websocket_close`, `websocket_error`, `ws_ping_timeout`, `clientsList`, `heartbeat` (debug), `not_registered` (warn).
 
-Stream: typically `node_red` (because the ingest URL path includes the stream name); `service: "webrtc-signaling"`, `tag: "webrtc"`.
+OpenObserve routing often follows the **stream segment in the ingest URL**; payloads use `service: "webrtc-signaling"`, `tag: "webrtc"`.
 
 ## HA add-on packaging
 
@@ -67,7 +67,7 @@ Stream: typically `node_red` (because the ingest URL path includes the stream na
 | **Dockerfile** | HA base + **`apk add nodejs npm`**; **`WORKDIR /opt/app`**; **`npm ci --omit=dev`** when lockfile present; copy **`src/`** + **`ui/`**; **`run.sh`** → **`node src/index.js`** |
 | **Options** | `/data/options.json`: `port`, `openobserve_url`, `openobserve_username`, `openobserve_password` |
 | **Port** | Schema: `int(1,65535)?`; default 8765 |
-| **Open dashboard** | `config.yaml`: **`webui: http://[HOST]:[PORT:8765]/`** → Supervisor **Open Web UI** on add-on Info; align `ports` / **`port`** option if user changes listen port |
+| **Open dashboard** | Ingress + panel keys + **`startup`/`boot`** like apk-update-service; no **`webui`**. Dashboard JS resolves base from **`/api/hassio_ingress/<token>`** (then legacy **`/hassio/ingress/<slug>`**). **Show in sidebar** (Supervisor **`ingress_panel`**) embeds the **app** panel in the HA shell. |
 
 ## Testing
 
@@ -81,6 +81,5 @@ DOCKER_HOST=unix:///var/run/docker.sock \
 ## Related (outside this repo)
 
 - **RPI Android app**: `IntercomRepository`, `WebRtcIntercom`, signaling URL preference
-- **Node-RED legacy**: `node-red/nodered-signaling-server.js` in RPI repo
 - **OPNsense proxy**: `ha.shafferco.com:8765` → this add-on; check `timeout tunnel` if connections drop
 - **HA log patterns**: `Signaling WebSocket incoming channel closed (server closed connection?)` = proxy or server killed the WS

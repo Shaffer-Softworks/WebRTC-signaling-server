@@ -1,6 +1,6 @@
 /**
  * Direct-Calling Signaling Router (standalone)
- * Matches the Node-RED WebSocket function node protocol.
+ * JSON message protocol over WebSocket (intercom / WebRTC signaling).
  *
  * Data structures:
  * - clients: { clientId: sessionId } - Maps device ID to WebSocket session
