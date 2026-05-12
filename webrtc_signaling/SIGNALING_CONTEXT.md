@@ -8,6 +8,16 @@ Signaling server work (protocol, tests, ops behavior) lives in this repo under *
 
 Do **not** treat the **RPI** Android repo as the source of truth for this server; it is a **protocol consumer**. Behavior and compatibility are defined here and in the source under **`webrtc_signaling/`**.
 
+## Project snapshot (saved context)
+
+| Item | Current state |
+|------|----------------|
+| **Add-on version** | **`1.3.3`** in `config.yaml` and `package.json` (bump together on release). |
+| **Layout** (apk-update-service style) | **`src/index.js`** — HTTP + WS; **`src/signaling.js`** — protocol; **`ui/index.html`** — dashboard; **`translations/en.yaml`** — Supervisor UI strings; **`verify-terminate-parity.test.js`** at add-on root; **`run.sh`** → `node src/index.js` under **`/opt/app`**. |
+| **Runtime image** | Supervisor **`build_from`**: **`ghcr.io/home-assistant/<arch>-base:3.21`** + **`apk add nodejs npm`**; **`with-contenv`** in `run.sh`. |
+| **Ingress** | **`ingress: true`**, **`ingress_port: 8765`**, **`panel_title`**, **`panel_icon`**; no **`webui`**. Dashboard resolves **`/api/hassio_ingress/<token>`** first, then legacy **`/hassio/ingress/<slug>`**, for **`/api/clients`** and **`/webrtc`**. **Show in sidebar** (Supervisor **`ingress_panel`**) opens the UI inside the HA shell. |
+| **LAN** | **`ports`** maps **`8765/tcp`**; **`port`** in options must stay consistent with **`ingress_port`** for ingress to work. |
+
 ## Android client (RPI intercom)
 
 The app uses the same message types as this server, including `replaced` and application-level `heartbeat`. Registration sends `displayName`; the server responds with `registered` and may send `replaced` when the same `clientId` attaches to a new session.
@@ -64,7 +74,15 @@ Without the app-level ping, proxies with a `timeout tunnel` of ~180s would kill 
 | `hostMemory` | **`os.totalmem()`** / **`os.freemem()`** — inside Docker, may reflect the **host VM** or **cgroup** view depending on runtime; treat as indicative. |
 | `hostCpu` | **`cpuPercent`** from summed **`os.cpus()`** tick deltas since the **previous** `/api/clients` request (**null** first time), plus **`logicalCores`**. System-wide busy vs idle over the poll interval; Docker may show the environment the container sees. |
 
-**Local Docker quick check:** from `webrtc_signaling/`, `docker build -t webrtc-signaling-local .` then `docker run --rm -p 8765:8765 webrtc-signaling-local` — open **`http://localhost:8765/`**.
+**Local Docker quick check:** from `webrtc_signaling/`, build with the same base Supervisor uses, then run (example **amd64**):
+
+```bash
+docker build -t webrtc-signaling-local \
+  --build-arg BUILD_FROM=ghcr.io/home-assistant/amd64-base:3.21 .
+docker run --rm -p 8765:8765 webrtc-signaling-local
+```
+
+Open **`http://localhost:8765/`**. For other arches, substitute the matching **`ghcr.io/home-assistant/<arch>-base:3.21`** image.
 
 ## Testing
 
@@ -90,11 +108,14 @@ DOCKER_HOST=unix:///var/run/docker.sock \
 
 ## Source files
 
-| File | Role |
+| File / path | Role |
 |------|------|
 | `src/signaling.js` | Protocol router, `clientId` ↔ session maps, stale prune, message routing |
 | `src/index.js` | HTTP static + API, `WebSocketServer` on `/webrtc`, sessions, ping sweep, OpenObserve hook |
+| `ui/index.html` | Dashboard (static; ingress-aware base URL for API + WS) |
+| `translations/en.yaml` | Add-on option / network strings for Supervisor |
 | `verify-terminate-parity.test.js` | 4 tests: eviction, stale prune, pong handling, unregistered pong error |
+| `config.yaml` / `build.yaml` / `Dockerfile` / `run.sh` | Supervisor metadata, multi-arch base images, image build, container entrypoint |
 
 ## Home Assistant add-on (Supervisor) — saved context
 
@@ -102,7 +123,7 @@ Repo URL: **[Shaffer-Softworks/WebRTC-signaling-server](https://github.com/Shaff
 
 | Topic | Requirement / pitfall |
 |--------|------------------------|
-| **Layout** | Root **`repository.yaml`**; add-on folder **`webrtc_signaling/`** must match **`slug: webrtc_signaling`** in `config.yaml`. |
+| **Layout** | Root **`repository.yaml`**; add-on folder **`webrtc_signaling/`** must match **`slug: webrtc_signaling`** in `config.yaml`. Inside the add-on: **`src/`**, **`ui/`**, **`translations/`**, **`run.sh`**, **`verify-terminate-parity.test.js`**. |
 | **Schema** | Option types use Supervisor regex. Port: **`int(1,65535)?`** (not `int(8765)?`). Optional strings: **`str?`**; optional password: **`password?`**. |
 | **`build.yaml`** | **`build_from`** uses full **`ghcr.io/home-assistant/<arch>-base:3.21`** images (same pattern as **apk-update-service**). Short names are rejected by Supervisor. |
 | **Dockerfile** | **`ARG BUILD_FROM`** / **`FROM ${BUILD_FROM}`**; **`RUN apk add --no-cache nodejs npm`**; **`WORKDIR /opt/app`**; copy **`package.json`** / lockfile, **`npm ci --omit=dev`** (or **`npm install`** if no lockfile); copy **`src/`** and **`ui/`**; **`run.sh`** runs **`node src/index.js`** via **`with-contenv`**. |
